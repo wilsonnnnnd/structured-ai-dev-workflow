@@ -27,7 +27,7 @@ Workflow:
 
 Clarification rules:
 - Ask only questions that directly affect implementation
-- Prefer 3–4 questions maximum
+- Prefer 3-4 questions maximum
 - Allowed question types:
   1. target file or directory
   2. allowed level of structural change

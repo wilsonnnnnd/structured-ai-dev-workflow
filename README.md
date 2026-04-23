@@ -1,89 +1,99 @@
-## 🧩 Architecture
+# ai-dev-workflow
 
-### 1. Project Context (`/ai/project.md`)
-Defines:
-- tech stack
-- folder structure
-- reusable components
-- UI system
+`ai-dev-workflow` is a small npm CLI that initializes a structured AI development workflow inside an existing repository and scans the project to generate reusable project context for AI-assisted development.
+
+It is meant for teams that want AI tools to work from stable repository guidance instead of starting every task from scratch.
+
+## Quick Start
+
+Run in an existing project directory:
+
+```bash
+npx ai-dev-workflow init
+npx ai-dev-workflow scan
+```
+
+Then review `ai/project.md` and add project-specific constraints under `## Manual Notes`.
+
+## Commands
+
+### `npx ai-dev-workflow init`
+
+Copies the workflow template into the current repository.
+
+The template includes:
+
+- `ai/project.md`
+- `ai/rules.md`
+- `ai/task-entry.md`
+- `ai/tests/`
+- `skill.md`
+- `AGENTS.md`
+- `.claude/skills/`
+- `.github/copilot-instructions.md`
+- `.github/agents/project-prompt.agent.md`
+
+Existing files are left in place when they already exist.
+
+### `npx ai-dev-workflow scan`
+
+Scans the current repository and updates the AUTO-GENERATED section of `ai/project.md`.
+
+The scan output includes:
+
+- project type
+- overview and tech stack
+- package metadata
+- structure overview
+- entry points
+- reusable system areas
 - risk areas
 
-👉 answers: *"what is this project?"*
+Manual notes below the AUTO-GENERATED block are preserved.
 
----
+## Supported Project Types
 
-### 2. Engineering Rules (`/ai/rules.md`)
-Defines:
-- reuse-first policy
-- shared module protection
-- UI constraints
-- scope control
+The scanner currently detects these high-level project types:
 
-👉 answers: *"what is allowed?"*
+- `cli-tool`
+- `web-app`
+- `fullstack-app`
+- `backend-app`
+- `template-repo`
+- `generic`
 
----
+Detection is based on common repository structure and package metadata. The result is intended to provide useful project context, not a complete architecture model.
 
-### 3. Controller (`/skill.md`)
-Acts as the global controller / router.
+## What Gets Added To A Project
 
-Responsibilities:
-- classify requests
-- decide whether to scan, design, or review
-- enforce clarification before execution
-- prevent direct code generation for vague requests
+After `init`, the target repository gets a plain-text workflow scaffold that helps AI tools:
 
-👉 answers: *"what should happen first?"*
+- understand the project before suggesting implementation
+- follow shared engineering rules
+- ask clarification questions when scope is unclear
+- generate or review structured implementation prompts
 
----
+The workflow is intentionally markdown-first so teams can inspect and adapt it over time.
 
-### 4. Skill Executors (`/.claude/skills/`)
-Split into:
+## Package Layout
 
-- `project-scan` → understand project structure and clarify scope
-- `prompt-design` → generate implementation prompt
-- `prompt-review` → enforce quality & constraints
+The published package includes:
 
-👉 answers: *"which specialized behavior should run?"*
+- `bin/` for CLI entrypoints
+- `src/scan/` for modular scan logic
+- `template/` for the files copied by `init`
+- `README.md`
+- `LICENSE`
 
----
+## Typical Usage
 
-### 5. Task Entry (`/ai/task-entry.md`)
-The entry point for every request.
+1. Run `npx ai-dev-workflow init` in the repository you want to prepare for AI-assisted work.
+2. Run `npx ai-dev-workflow scan` to generate project-aware context in `ai/project.md`.
+3. Review the generated context and add stable project-specific notes under `## Manual Notes`.
+4. Use `ai/task-entry.md` and `skill.md` as the main workflow entry points for future requests.
 
-Includes:
-- task input
-- controller usage
-- constraints
-- output rules
+## Notes
 
-👉 answers: *"how do we start?"*
-
----
-
-### 6. Testing (`/ai/tests/test-case.md`)
-Used to validate:
-
-- AI follows rules
-- AI chooses correct behavior
-- AI does NOT generate unsafe outputs
-- `ai/tests/expected-good-output.md` contains reference outputs for validating workflow quality
-
----
-
-## Validation
-
-This workflow is regression-tested to verify that request routing, clarification, and prompt generation stay aligned with the repository rules.
-
-- `ai/tests/test-case.md`: defines the workflow test inputs.
-- `ai/tests/expected-good-output.md`: defines the expected pass criteria and reference outputs.
-- `ai/tests/evaluation-prompt.md`: defines the evaluation rubric used to score responses.
-- `ai/tests/run-all-tests.md`: defines the full regression run procedure and summary format.
-
-Status:
-- Average score: 10/10
-- Passed cases: 3/3
-- Core guarantees validated:
-- classification
-- clarification behavior
-- reuse-first behavior
-- shared-module safety
+- `scan` is safe to re-run and only updates the AUTO-GENERATED section of `ai/project.md`
+- project-specific constraints should live under `## Manual Notes`
+- the initialized workflow is designed to stay simple, reviewable, and easy to version

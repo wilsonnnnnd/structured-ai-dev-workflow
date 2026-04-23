@@ -45,11 +45,11 @@ You MUST evaluate the response based on the following dimensions:
 
 Score from 0 to 10:
 
-- 9–10: Fully correct, production-quality behavior
-- 7–8: Mostly correct, minor issues
-- 5–6: Noticeable issues, partially correct
-- 3–4: Major problems, incorrect behavior
-- 0–2: Completely incorrect
+- 9-10: Fully correct, production-quality behavior
+- 7-8: Mostly correct, minor issues
+- 5-6: Noticeable issues, partially correct
+- 3-4: Major problems, incorrect behavior
+- 0-2: Completely incorrect
 
 ---
 
@@ -58,7 +58,7 @@ Score from 0 to 10:
 Score: X/10
 
 Summary:
-(1–2 sentence overall judgment)
+(1-2 sentence overall judgment)
 
 Breakdown:
 

@@ -165,7 +165,7 @@ Update the shared primary Button style to feel stronger for main CTAs, but keep 
 
 Expected behavior:
 - classify as CLEAR / IMPLEMENTABLE
-- ask at most 1–2 boundary questions only if necessary
+- ask at most 1-2 boundary questions only if necessary
 - then proceed to structured implementation prompt
 - prefer extending existing Button behavior/style path
 - avoid duplicate components

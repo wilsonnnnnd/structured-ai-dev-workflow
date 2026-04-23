@@ -95,7 +95,7 @@ Act as **prompt-design**
 
 You MUST:
 
-- If 1–2 critical boundary questions remain:
+- If 1-2 critical boundary questions remain:
   - ask those questions first
   - then proceed to generate the implementation prompt
 
@@ -147,7 +147,7 @@ Ask in this order:
 4. expected output type
 
 Constraints:
-- Prefer 3–4 questions maximum
+- Prefer 3-4 questions maximum
 - Only ask questions that change:
   - scope
   - allowed edits
