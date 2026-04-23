@@ -1,5 +1,11 @@
 # ai-dev-workflow
 
+## 0.2.5
+
+### Patch Changes
+
+- 057c190: test release 0.2.5
+
 ## 0.2.4
 
 ### Patch Changes
