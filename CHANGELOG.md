@@ -1,5 +1,11 @@
 # ai-dev-workflow
 
+## 0.2.2
+
+### Patch Changes
+
+- b07f27e: test trusted publishing release flow
+
 ## 0.2.1
 
 ### Patch Changes
