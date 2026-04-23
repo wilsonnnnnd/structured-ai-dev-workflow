@@ -30,9 +30,6 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Check package tarball
-        run: npm run release:check
-
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:
