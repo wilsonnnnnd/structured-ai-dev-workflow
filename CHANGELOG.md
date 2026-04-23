@@ -1,5 +1,11 @@
 # ai-dev-workflow
 
+## 0.2.4
+
+### Patch Changes
+
+- 299fb97: test CI auto publish 0.2.4
+
 ## 0.2.3
 
 ### Patch Changes
