@@ -4,4 +4,4 @@
 
 ### Minor Changes
 
-- d0417cb: add documentation alignment
+- 064a7b8: add documentation alignment
