@@ -1,5 +1,11 @@
 # ai-dev-workflow
 
+## 0.2.3
+
+### Patch Changes
+
+- d6e1667: test trusted publishing with npm-publish environment
+
 ## 0.2.2
 
 ### Patch Changes
