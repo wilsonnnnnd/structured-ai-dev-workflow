@@ -1,5 +1,11 @@
 # ai-dev-workflow
 
+## 0.2.6
+
+### Patch Changes
+
+- c35025d: test
+
 ## 0.2.5
 
 ### Patch Changes
