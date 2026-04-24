@@ -2,7 +2,7 @@ You are an evaluator for an AI development workflow.
 
 Your job is to evaluate whether the given AI response meets the expected behavior defined in:
 
-- ai/tests/expected-good-output.md
+- .aidw/tests/expected-good-output.md
 
 ---
 

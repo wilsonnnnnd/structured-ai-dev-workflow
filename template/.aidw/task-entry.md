@@ -1,6 +1,6 @@
 Load:
-- ai/project.md
-- ai/rules.md
+- .aidw/project.md
+- .aidw/rules.md
 - skill.md
 
 # Task
@@ -28,7 +28,7 @@ If clarification is required, only ask implementation-boundary questions.
 
 # Constraints
 
-- Follow ai/rules.md strictly
+- Follow .aidw/rules.md strictly
 - Reuse existing components, hooks, utilities, and services
 - Keep changes minimal and localized
 - Do not break existing functionality

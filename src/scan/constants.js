@@ -3,6 +3,17 @@ export const AUTO_GENERATED_END = "<!-- AUTO-GENERATED END -->";
 export const LEGACY_AUTO_GENERATED_START = "<!-- AUTO-GENERATED:START -->";
 export const LEGACY_AUTO_GENERATED_END = "<!-- AUTO-GENERATED:END -->";
 
+export const CONTEXT_DIR = ".aidw";
+export const CONTEXT_PROJECT_MD_PATH = `${CONTEXT_DIR}/project.md`;
+export const CONTEXT_META_PATH = `${CONTEXT_DIR}/meta.json`;
+export const CONTEXT_SCAN_LAST_PATH = `${CONTEXT_DIR}/scan/last.json`;
+
+export const MANAGED_CONTEXT_FILE_PATHS = new Set([
+    CONTEXT_PROJECT_MD_PATH,
+    CONTEXT_META_PATH,
+    CONTEXT_SCAN_LAST_PATH,
+]);
+
 export const PROJECT_TYPES = {
     CLI_TOOL: "cli-tool",
     WEB_APP: "web-app",

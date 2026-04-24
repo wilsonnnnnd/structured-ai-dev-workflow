@@ -1,6 +1,8 @@
 import {
     AUTO_GENERATED_END,
     AUTO_GENERATED_START,
+    CONTEXT_DIR,
+    CONTEXT_PROJECT_MD_PATH,
     LEGACY_AUTO_GENERATED_END,
     LEGACY_AUTO_GENERATED_START,
 } from "../constants.js";
@@ -10,8 +12,6 @@ import {
     readText,
     writeText,
 } from "../fs-utils.js";
-
-const PROJECT_MD_PATH = "ai/project.md";
 
 function createProjectMdContent(newContent) {
     return `# Project Context
@@ -71,7 +71,7 @@ ${AUTO_GENERATED_END}${after}`;
 }
 
 export function getProjectMdUpdate(newContent) {
-    if (!exists(PROJECT_MD_PATH)) {
+    if (!exists(CONTEXT_PROJECT_MD_PATH)) {
         return {
             changed: true,
             currentSection: null,
@@ -80,7 +80,7 @@ export function getProjectMdUpdate(newContent) {
         };
     }
 
-    const existing = readText(PROJECT_MD_PATH);
+    const existing = readText(CONTEXT_PROJECT_MD_PATH);
     const markers = findMarkers(existing);
 
     if (!markers) {
@@ -90,7 +90,7 @@ export function getProjectMdUpdate(newContent) {
             nextSection: newContent,
             content: null,
             skipped: true,
-            reason: "AUTO-GENERATED markers not found in ai/project.md.",
+            reason: `AUTO-GENERATED markers not found in ${CONTEXT_PROJECT_MD_PATH}.`,
         };
     }
 
@@ -120,8 +120,8 @@ export function updateProjectMd(newContent) {
         return update;
     }
 
-    ensureDir("ai");
-    writeText(PROJECT_MD_PATH, update.content);
+    ensureDir(CONTEXT_DIR);
+    writeText(CONTEXT_PROJECT_MD_PATH, update.content);
 
     return update;
 }

@@ -1,4 +1,4 @@
-import { PROJECT_TYPES } from "../constants.js";
+import { CONTEXT_DIR, PROJECT_TYPES } from "../constants.js";
 import { exists } from "../fs-utils.js";
 
 function hasFrontendStructure(structure) {
@@ -29,8 +29,8 @@ export function detectRiskAreas(projectType, structure, sharedUi) {
             "CLI entrypoints in bin/ can break command execution if moved or renamed",
             "package.json bin/files/version changes affect installation and publish behavior",
             "template/ changes affect every generated target project",
-            "skill.md and ai/rules.md changes affect controller behavior and workflow boundaries",
-            "ai/tests/ changes can invalidate regression expectations and evaluation consistency",
+            `skill.md and ${CONTEXT_DIR}/rules.md changes affect controller behavior and workflow boundaries`,
+            `${CONTEXT_DIR}/tests/ changes can invalidate regression expectations and evaluation consistency`,
         ];
     }
 

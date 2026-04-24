@@ -2,6 +2,10 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+    CONTEXT_DIR,
+    MANAGED_CONTEXT_FILE_PATHS,
+} from "../src/scan/constants.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +32,16 @@ function copyDir(src, dest, options, results) {
             const relativePath = formatRelative(destPath, options.targetDir);
 
             if (fs.existsSync(destPath)) {
+                if (options.force && MANAGED_CONTEXT_FILE_PATHS.has(relativePath)) {
+                    results.updated.push(relativePath);
+
+                    if (!options.dryRun) {
+                        fs.copyFileSync(srcPath, destPath);
+                    }
+
+                    continue;
+                }
+
                 results.skipped.push(relativePath);
             } else {
                 results.created.push(relativePath);
@@ -60,19 +74,38 @@ function printList(title, items) {
     }
 }
 
-function printNext() {
-    console.log("");
+function printNext(options = {}) {
+    if (options.leadingBlank !== false) {
+        console.log("");
+    }
+
     console.log("Next:");
-    console.log("* Run 'ai-dev-workflow scan' to update project context.");
+    console.log("* Run ai-dev-workflow scan");
+}
+
+function printSimpleCompletedInit() {
+    console.log("\u2714 Init completed");
+    console.log(`Created: ${CONTEXT_DIR}/`);
+    console.log("(ai-dev-workflow project context)");
+    printNext({ leadingBlank: false });
+}
+
+function printForceCompletedInit() {
+    console.log("\u2714 Init completed");
+    console.log(`Updated: ${CONTEXT_DIR}/`);
+    console.log("(ai-dev-workflow project context)");
+    printNext();
 }
 
 export async function runInit(options = {}) {
     const initOptions = {
         dryRun: Boolean(options.dryRun),
+        force: Boolean(options.force),
         targetDir: options.targetDir || process.cwd(),
     };
     const results = {
         created: [],
+        updated: [],
         skipped: [],
     };
 
@@ -83,17 +116,25 @@ export async function runInit(options = {}) {
         console.log("");
         printList("Would create", results.created);
         console.log("");
+        printList("Would update", results.updated);
+        console.log("");
         printList("Would skip", results.skipped);
         printNext();
         return results;
     }
 
-    console.log("\u2714 Init completed");
-    console.log("");
-    printList("Created", results.created);
-    console.log("");
-    printList("Skipped", results.skipped);
-    printNext();
+    if (initOptions.force) {
+        printForceCompletedInit();
+    } else if (results.skipped.length === 0) {
+        printSimpleCompletedInit();
+    } else {
+        console.log("\u2714 Init completed");
+        console.log("");
+        printList("Created", results.created);
+        console.log("");
+        printList("Skipped", results.skipped);
+        printNext();
+    }
 
     return results;
 }

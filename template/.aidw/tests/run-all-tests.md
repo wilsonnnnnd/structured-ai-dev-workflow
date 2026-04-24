@@ -6,12 +6,12 @@ Read these files first:
 
 - AGENTS.md
 - skill.md
-- ai/project.md
-- ai/rules.md
-- ai/task-entry.md
-- ai/tests/test-case.md
-- ai/tests/expected-good-output.md
-- ai/tests/evaluation-prompt.md
+- .aidw/project.md
+- .aidw/rules.md
+- .aidw/task-entry.md
+- .aidw/tests/test-case.md
+- .aidw/tests/expected-good-output.md
+- .aidw/tests/evaluation-prompt.md
 - .claude/skills/project-scan/SKILL.md
 - .claude/skills/prompt-design/SKILL.md
 - .claude/skills/prompt-review/SKILL.md
@@ -20,12 +20,12 @@ Read these files first:
 
 ## Goal
 
-Run all existing test cases from `ai/tests/test-case.md`.
+Run all existing test cases from `.aidw/tests/test-case.md`.
 
 For each test case:
 
 1. Simulate the expected system response using the current controller + skills workflow
-2. Evaluate that response against `ai/tests/expected-good-output.md`
+2. Evaluate that response against `.aidw/tests/expected-good-output.md`
 3. Assign a score from 0 to 10
 4. Record:
    - classification

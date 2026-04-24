@@ -1,4 +1,4 @@
-import { PROJECT_TYPES } from "../constants.js";
+import { CONTEXT_DIR, PROJECT_TYPES } from "../constants.js";
 import { exists, findFirstExisting, listDirSafe } from "../fs-utils.js";
 
 export function detectSharedUi() {
@@ -73,7 +73,7 @@ function buildCliReusableSystem() {
                     "template-driven workflow under template/",
                     "controller logic defined in skill.md",
                     "skill executors under .claude/skills/",
-                    "workflow evaluation assets under ai/tests/",
+                    `workflow evaluation assets under ${CONTEXT_DIR}/tests/`,
                 ],
             },
         ],

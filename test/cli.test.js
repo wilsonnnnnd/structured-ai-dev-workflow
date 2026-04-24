@@ -106,14 +106,93 @@ test("CLI behavior", async (t) => {
                 "custom instructions\n",
             );
             assert.ok(results.skipped.includes("AGENTS.md"));
-            assert.ok(results.created.includes("ai/project.md"));
+            assert.ok(results.created.includes(".aidw/project.md"));
+        });
+    });
+
+    await t.test("init without force skips existing context files", async () => {
+        await withTempProject(async () => {
+            writeFile(".aidw/project.md", "custom project context\n");
+
+            const results = await withMutedConsole(() => runInit());
+
+            assert.equal(
+                fs.readFileSync(".aidw/project.md", "utf-8"),
+                "custom project context\n",
+            );
+            assert.ok(results.skipped.includes(".aidw/project.md"));
+        });
+    });
+
+    await t.test("init creates hidden context directory and prints project context", async () => {
+        await withTempProject(async () => {
+            const { output, result } = await withCapturedConsole(() => runInit());
+
+            assert.ok(fs.existsSync(".aidw"));
+            assert.ok(fs.existsSync(".aidw/project.md"));
+            assert.equal(fs.existsSync("ai"), false);
+            assert.ok(result.created.includes(".aidw/project.md"));
+            assert.equal(
+                output.join("\n"),
+                "\u2714 Init completed\nCreated: .aidw/\n(ai-dev-workflow project context)\nNext:\n* Run ai-dev-workflow scan",
+            );
+        });
+    });
+
+    await t.test("init force overwrites managed context files", async () => {
+        await withTempProject(async () => {
+            writeFile(".aidw/project.md", "custom project context\n");
+            writeFile(".aidw/meta.json", "{\"custom\":true}\n");
+            writeFile(".aidw/scan/last.json", "{\"custom\":true}\n");
+
+            const { output, result } = await withCapturedConsole(() =>
+                runInit({ force: true }),
+            );
+
+            assert.notEqual(
+                fs.readFileSync(".aidw/project.md", "utf-8"),
+                "custom project context\n",
+            );
+            assert.deepEqual(
+                JSON.parse(fs.readFileSync(".aidw/meta.json", "utf-8")),
+                {
+                    schemaVersion: 1,
+                    tool: "ai-dev-workflow",
+                },
+            );
+            assert.deepEqual(
+                JSON.parse(fs.readFileSync(".aidw/scan/last.json", "utf-8")),
+                {
+                    status: "not-run",
+                },
+            );
+            assert.ok(result.updated.includes(".aidw/project.md"));
+            assert.ok(result.updated.includes(".aidw/meta.json"));
+            assert.ok(result.updated.includes(".aidw/scan/last.json"));
+            assert.equal(
+                output.join("\n"),
+                "\u2714 Init completed\nUpdated: .aidw/\n(ai-dev-workflow project context)\n\nNext:\n* Run ai-dev-workflow scan",
+            );
+        });
+    });
+
+    await t.test("init force preserves unknown context files", async () => {
+        await withTempProject(async () => {
+            writeFile(".aidw/custom-note.md", "keep me\n");
+
+            await withMutedConsole(() => runInit({ force: true }));
+
+            assert.equal(
+                fs.readFileSync(".aidw/custom-note.md", "utf-8"),
+                "keep me\n",
+            );
         });
     });
 
     await t.test("scan updates generated section and preserves manual content", async () => {
         await withTempProject(async () => {
             writeFile(
-                "ai/project.md",
+                ".aidw/project.md",
                 `# Project Context
 
 <!-- AUTO-GENERATED:START -->
@@ -129,10 +208,10 @@ old generated content
             writeFile("bin/cli.js", "#!/usr/bin/env node\n");
 
             const result = await withMutedConsole(() => runScan());
-            const updated = fs.readFileSync("ai/project.md", "utf-8");
+            const updated = fs.readFileSync(".aidw/project.md", "utf-8");
 
             assert.equal(result.changed, true);
-            assert.deepEqual(result.updatedFiles, ["ai/project.md"]);
+            assert.deepEqual(result.updatedFiles, [".aidw/project.md"]);
             assert.equal(result.project.type, PROJECT_TYPES.CLI_TOOL);
             assert.deepEqual(result.project.entryPoints, ["bin/cli.js"]);
             assert.match(updated, /## AI Development Notes/);
@@ -145,7 +224,7 @@ old generated content
         await withTempProject(async () => {
             process.exitCode = 0;
             writeFile(
-                "ai/project.md",
+                ".aidw/project.md",
                 `# Project Context
 
 <!-- AUTO-GENERATED START -->
@@ -160,9 +239,9 @@ old generated content
             writeFile("package.json", JSON.stringify({ name: "scan-target" }));
             writeFile("bin/cli.js", "#!/usr/bin/env node\n");
 
-            const before = fs.readFileSync("ai/project.md", "utf-8");
+            const before = fs.readFileSync(".aidw/project.md", "utf-8");
             const result = await withMutedConsole(() => runScan({ mode: "check" }));
-            const after = fs.readFileSync("ai/project.md", "utf-8");
+            const after = fs.readFileSync(".aidw/project.md", "utf-8");
 
             assert.equal(after, before);
             assert.equal(result.changed, true);
@@ -175,7 +254,7 @@ old generated content
     await t.test("scan check reports missing markers", async () => {
         await withTempProject(async () => {
             process.exitCode = 0;
-            writeFile("ai/project.md", "# Project Context\n\nmanual only\n");
+            writeFile(".aidw/project.md", "# Project Context\n\nmanual only\n");
             writeFile("package.json", JSON.stringify({ name: "scan-target" }));
             writeFile("bin/cli.js", "#!/usr/bin/env node\n");
 
@@ -188,7 +267,7 @@ old generated content
             assert.match(output.join("\n"), /Project context cannot be checked/);
             assert.match(
                 output.join("\n"),
-                /Reason:\n\* AUTO-GENERATED markers not found in ai\/project\.md/,
+                /Reason:\n\* AUTO-GENERATED markers not found in \.aidw\/project\.md/,
             );
             process.exitCode = 0;
         });
@@ -197,7 +276,7 @@ old generated content
     await t.test("scan auto updates changed generated content", async () => {
         await withTempProject(async () => {
             writeFile(
-                "ai/project.md",
+                ".aidw/project.md",
                 `# Project Context
 
 <!-- AUTO-GENERATED START -->
@@ -213,7 +292,7 @@ old generated content
             writeFile("bin/cli.js", "#!/usr/bin/env node\n");
 
             const update = await withMutedConsole(() => runScan({ mode: "auto" }));
-            const updated = fs.readFileSync("ai/project.md", "utf-8");
+            const updated = fs.readFileSync(".aidw/project.md", "utf-8");
 
             assert.equal(update.changed, true);
             assert.match(updated, /## AI Development Notes/);
@@ -229,9 +308,9 @@ old generated content
             const { output, result } = await withCapturedConsole(() => runScan());
 
             assert.equal(result.changed, true);
-            assert.deepEqual(result.updatedFiles, ["ai/project.md"]);
+            assert.deepEqual(result.updatedFiles, [".aidw/project.md"]);
             assert.match(output.join("\n"), /Project scan completed/);
-            assert.match(output.join("\n"), /Changes:\n\* Updated ai\/project\.md/);
+            assert.match(output.join("\n"), /Changes:\n\* Updated \.aidw\/project\.md/);
             assert.match(output.join("\n"), /Summary:\n\* Project type: cli-tool/);
             assert.match(output.join("\n"), /\* Entry points: bin\/cli\.js/);
         });
@@ -254,7 +333,7 @@ old generated content
             assert.match(output.join("\n"), /Project context is up to date/);
             assert.match(
                 output.join("\n"),
-                /Checked:\n\* ai\/project\.md AUTO-GENERATED section/,
+                /Checked:\n\* \.aidw\/project\.md AUTO-GENERATED section/,
             );
         });
     });

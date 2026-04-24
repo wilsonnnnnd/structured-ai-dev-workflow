@@ -1,4 +1,4 @@
-import { PROJECT_TYPES } from "../constants.js";
+import { CONTEXT_DIR, PROJECT_TYPES } from "../constants.js";
 import { exists } from "../fs-utils.js";
 
 export const STRUCTURE_MAP = [
@@ -8,7 +8,7 @@ export const STRUCTURE_MAP = [
         description: "files copied into target projects during init",
     },
     {
-        path: "ai",
+        path: CONTEXT_DIR,
         description: "workflow docs, rules, prompts, and evaluation assets",
     },
     {
@@ -95,7 +95,7 @@ export const STRUCTURE_MAP = [
 const CLI_STRUCTURE_PATHS = new Set([
     "bin",
     "template",
-    "ai",
+    CONTEXT_DIR,
     ".claude",
     "config",
     "lib",

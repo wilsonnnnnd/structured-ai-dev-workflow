@@ -20,7 +20,7 @@ The repository is packaged for npm distribution.
 
 ## Package Metadata
 - name: ai-dev-workflow
-- version: 0.2.8
+- version: 0.3.1
 - module type: module
 - license: MIT
 - bin:
@@ -37,7 +37,7 @@ The repository is packaged for npm distribution.
 - Entry point: bin/cli.js
 - Template files are copied into user projects during init
 - template/ paths are runtime template sources; do not rewrite them as generated output paths
-- .claude/skills and ai/tests are generated in user projects when present in the template
+- .claude/skills and .aidw/tests are generated in user projects when present in the template
 - Do not modify generated files unless explicitly required
 - Preserve package manager (npm/yarn/pnpm)
 - Follow existing file structure when adding new features
@@ -45,7 +45,7 @@ The repository is packaged for npm distribution.
 ## Structure Overview
 - bin/ -> CLI entrypoints and command handlers
 - template/ -> files copied into target projects during init
-- ai/ -> workflow docs, rules, prompts, and evaluation assets
+- .aidw/ -> workflow docs, rules, prompts, and evaluation assets
 
 ## Entry Points
 - bin/cli.js -> CLI command entry or command helper
@@ -58,14 +58,14 @@ The repository is packaged for npm distribution.
 - template-driven workflow under template/
 - controller logic defined in skill.md
 - skill executors under .claude/skills/
-- workflow evaluation assets under ai/tests/
+- workflow evaluation assets under .aidw/tests/
 
 ## Risk Areas
 - CLI entrypoints in bin/ can break command execution if moved or renamed
 - package.json bin/files/version changes affect installation and publish behavior
 - template/ changes affect every generated target project
-- skill.md and ai/rules.md changes affect controller behavior and workflow boundaries
-- ai/tests/ changes can invalidate regression expectations and evaluation consistency
+- skill.md and .aidw/rules.md changes affect controller behavior and workflow boundaries
+- .aidw/tests/ changes can invalidate regression expectations and evaluation consistency
 
 ## Project Notes
 - Reuse existing structures before creating new ones

@@ -29,7 +29,9 @@ npx ai-dev-workflow init
 npx ai-dev-workflow scan
 ```
 
-Then review `ai/project.md` and add project-specific constraints under `## Manual Notes`.
+Then review `.aidw/project.md` and add project-specific constraints under `## Manual Notes`.
+
+`.aidw/` is the internal project context directory used by ai-dev-workflow.
 
 ## Commands
 
@@ -39,10 +41,12 @@ Copies the workflow template into the current repository.
 
 The template includes:
 
-- `ai/project.md`
-- `ai/rules.md`
-- `ai/task-entry.md`
-- `ai/tests/`
+- `.aidw/project.md`
+- `.aidw/meta.json`
+- `.aidw/scan/last.json`
+- `.aidw/rules.md`
+- `.aidw/task-entry.md`
+- `.aidw/tests/`
 - `skill.md`
 - `AGENTS.md`
 - `.claude/skills/`
@@ -51,9 +55,11 @@ The template includes:
 
 Existing files are left in place when they already exist.
 
+Use `--force` to recreate managed context files without deleting unknown files inside `.aidw/`.
+
 ### `npx ai-dev-workflow scan`
 
-Scans the current repository and updates the AUTO-GENERATED section of `ai/project.md`.
+Scans the current repository and updates the AUTO-GENERATED section of `.aidw/project.md`.
 
 The scan output includes:
 
@@ -69,7 +75,7 @@ Manual notes below the AUTO-GENERATED block are preserved.
 
 ### `npx ai-dev-workflow scan --check`
 
-Validates whether the AUTO-GENERATED section of `ai/project.md` is up to date without writing files.
+Validates whether the AUTO-GENERATED section of `.aidw/project.md` is up to date without writing files.
 
 This is useful for CI because it returns exit code `1` when project context is outdated or cannot be checked.
 
@@ -79,7 +85,7 @@ npx ai-dev-workflow scan --check
 
 ### `npx ai-dev-workflow scan --auto`
 
-Updates `ai/project.md` automatically with no prompts or confirmation.
+Updates `.aidw/project.md` automatically with no prompts or confirmation.
 
 This is useful for automation where project context should be refreshed as part of a scripted workflow.
 
@@ -126,13 +132,13 @@ The published package includes:
 ## Typical Usage
 
 1. Run `npx ai-dev-workflow init` in the repository you want to prepare for AI-assisted work.
-2. Run `npx ai-dev-workflow scan` to generate project-aware context in `ai/project.md`.
+2. Run `npx ai-dev-workflow scan` to generate project-aware context in `.aidw/project.md`.
 3. Review the generated context and add stable project-specific notes under `## Manual Notes`.
-4. Use `ai/task-entry.md` and `skill.md` as the main workflow entry points for future requests.
+4. Use `.aidw/task-entry.md` and `skill.md` as the main workflow entry points for future requests.
 
 ## Notes
 
-- `scan` is safe to re-run and only updates the AUTO-GENERATED section of `ai/project.md`
+- `scan` is safe to re-run and only updates the AUTO-GENERATED section of `.aidw/project.md`
 - project-specific constraints should live under `## Manual Notes`
 - the initialized workflow is designed to stay simple, reviewable, and easy to version
 - lightweight release smoke test: run `npm pack --dry-run`, then try `npx ai-dev-workflow init` and `npx ai-dev-workflow scan` in a temporary target project

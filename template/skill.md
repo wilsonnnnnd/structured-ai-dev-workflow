@@ -20,9 +20,9 @@ Your responsibility is to:
 
 Always read:
 
-- ai/project.md
-- ai/rules.md
-- ai/task-entry.md (if present)
+- .aidw/project.md
+- .aidw/rules.md
+- .aidw/task-entry.md (if present)
 
 All delegated skill behavior must inherit this controller's clarification policy and forbidden-question rules.
 
@@ -186,7 +186,7 @@ If the request is treated as CLEAR (including refinement cases):
 
 # Global Constraints (Always Enforced)
 
-- Follow ai/rules.md strictly
+- Follow .aidw/rules.md strictly
 - Reuse existing components, hooks, utilities, and services
 - Do NOT duplicate logic
 - Keep changes minimal and localized

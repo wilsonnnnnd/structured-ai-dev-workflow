@@ -3,9 +3,9 @@
 This repository uses a structured AI development workflow.
 
 ## Read first
-- ai/project.md
-- ai/rules.md
-- ai/task-entry.md
+- .aidw/project.md
+- .aidw/rules.md
+- .aidw/task-entry.md
 
 ## Required behavior
 1. Understand the project before suggesting implementation

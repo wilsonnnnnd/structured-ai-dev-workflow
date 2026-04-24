@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { runInit } from "./init.js";
 import { runScan } from "./scan.js";
+import { CONTEXT_PROJECT_MD_PATH } from "../src/scan/constants.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,10 +15,11 @@ function printHelp() {
 
 Commands:
   init        Copy workflow template into the current repository
-  scan        Update ai/project.md project context
+  scan        Update ${CONTEXT_PROJECT_MD_PATH} project context
 
 Init options:
   --dry-run   Show what init would create or skip without writing files
+  --force     Recreate managed project context files without deleting unknown files
 
 Scan options:
   --check     Check whether scan output is up to date without writing files
@@ -50,7 +52,10 @@ async function main() {
     }
 
     if (command === "init") {
-        await runInit({ dryRun: args.includes("--dry-run") });
+        await runInit({
+            dryRun: args.includes("--dry-run"),
+            force: args.includes("--force"),
+        });
         return;
     }
 

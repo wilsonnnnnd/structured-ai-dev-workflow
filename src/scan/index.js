@@ -7,6 +7,7 @@ import {
     detectUtilityDirs,
 } from "./detectors/reusable-system.js";
 import { detectRiskAreas } from "./detectors/risk-areas.js";
+import { CONTEXT_DIR, CONTEXT_PROJECT_MD_PATH } from "./constants.js";
 import {
     getClosestStructurePath,
     detectStructure,
@@ -194,7 +195,7 @@ export function generateProjectMdContent(scanData = buildProjectScanData()) {
         "- Entry point: bin/cli.js",
         "- Template files are copied into user projects during init",
         "- template/ paths are runtime template sources; do not rewrite them as generated output paths",
-        "- .claude/skills and ai/tests are generated in user projects when present in the template",
+        `- .claude/skills and ${CONTEXT_DIR}/tests are generated in user projects when present in the template`,
         "- Do not modify generated files unless explicitly required",
         "- Preserve package manager (npm/yarn/pnpm)",
         "- Follow existing file structure when adding new features",
@@ -246,7 +247,7 @@ export function generateProjectMdContent(scanData = buildProjectScanData()) {
 function createScanResult(update, scanData, didWrite = false) {
     return {
         changed: update.changed,
-        updatedFiles: didWrite ? ["ai/project.md"] : [],
+        updatedFiles: didWrite ? [CONTEXT_PROJECT_MD_PATH] : [],
         project: {
             type: scanData.projectType,
             entryPoints: scanData.entryPoints.map((entryPoint) => entryPoint.label),
@@ -297,7 +298,7 @@ function printCheckResult(update) {
         console.log("\u2716 Project context cannot be checked");
         console.log("");
         console.log("Reason:");
-        console.log("* AUTO-GENERATED markers not found in ai/project.md");
+        console.log(`* AUTO-GENERATED markers not found in ${CONTEXT_PROJECT_MD_PATH}`);
         console.log("");
         console.log("Next:");
         console.log("* Run 'ai-dev-workflow scan' to regenerate.");
@@ -308,14 +309,14 @@ function printCheckResult(update) {
         console.log("\u2714 Project context is up to date");
         console.log("");
         console.log("Checked:");
-        console.log("* ai/project.md AUTO-GENERATED section");
+        console.log(`* ${CONTEXT_PROJECT_MD_PATH} AUTO-GENERATED section`);
         return;
     }
 
     console.log("\u2716 Project context is outdated");
     console.log("");
     console.log("Changes:");
-    console.log("* ai/project.md generated section is out of date");
+    console.log(`* ${CONTEXT_PROJECT_MD_PATH} generated section is out of date`);
     console.log("");
     console.log("Next:");
     console.log("* Run 'ai-dev-workflow scan' to update.");
@@ -325,10 +326,10 @@ function printSkippedUpdateResult() {
     console.log("\u2716 Project scan cannot update project context");
     console.log("");
     console.log("Reason:");
-    console.log("* AUTO-GENERATED markers not found in ai/project.md");
+    console.log(`* AUTO-GENERATED markers not found in ${CONTEXT_PROJECT_MD_PATH}`);
     console.log("");
     console.log("Next:");
-    console.log("* Add AUTO-GENERATED markers or regenerate ai/project.md.");
+    console.log(`* Add AUTO-GENERATED markers or regenerate ${CONTEXT_PROJECT_MD_PATH}.`);
 }
 
 export async function runScan(options = {}) {
