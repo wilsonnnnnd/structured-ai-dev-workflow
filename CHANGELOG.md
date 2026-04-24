@@ -1,5 +1,11 @@
 # ai-dev-workflow
 
+## 0.3.1
+
+### Patch Changes
+
+- 4d29e83: Refactor scan data generation and enhance CLI test coverage
+
 ## 0.3.0
 
 ### Minor Changes
