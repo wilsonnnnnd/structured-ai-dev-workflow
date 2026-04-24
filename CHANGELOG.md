@@ -1,5 +1,19 @@
 # ai-dev-workflow
 
+## 0.3.1
+
+### Patch Changes
+
+- 1e3551f: Improve CLI output consistency and documentation.
+
+  - Standardize init and scan output format
+  - Improve scan --check and scan --auto messages
+  - Group help text options
+  - Document scan --check and scan --auto usage
+  - Add tests for no-change and marker-missing cases
+
+- 4d29e83: Refactor scan data generation and enhance CLI test coverage
+
 ## 0.3.0
 
 ### Minor Changes
