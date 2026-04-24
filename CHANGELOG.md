@@ -1,5 +1,11 @@
 # ai-dev-workflow
 
+## 0.2.7
+
+### Patch Changes
+
+- cb5079f: test
+
 ## 0.2.6
 
 ### Patch Changes

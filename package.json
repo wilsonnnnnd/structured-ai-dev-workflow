@@ -1,6 +1,6 @@
 {
     "name": "ai-dev-workflow",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "description": "A project-aware AI development workflow initializer and scanner.",
     "type": "module",
     "engines": {
