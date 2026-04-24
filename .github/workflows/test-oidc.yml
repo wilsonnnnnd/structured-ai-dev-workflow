@@ -1,0 +1,45 @@
+name: Test npm OIDC
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment: npm-publish
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+
+      - name: Show GitHub Context
+        run: |
+          echo "repo: $GITHUB_REPOSITORY"
+          echo "workflow: $GITHUB_WORKFLOW"
+          echo "ref: $GITHUB_REF"
+          echo "event: $GITHUB_EVENT_NAME"
+          echo "sha: $GITHUB_SHA"
+          echo "env: npm-publish"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Test npm auth (OIDC)
+        run: |
+          echo "Testing npm identity..."
+          npm whoami || true
+
+      - name: Test npm publish (dry-run with OIDC)
+        run: |
+          echo "Testing npm publish with OIDC..."
+          npm publish --dry-run --provenance --access public --loglevel verbose
