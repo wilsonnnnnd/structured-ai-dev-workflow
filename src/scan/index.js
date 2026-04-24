@@ -254,29 +254,81 @@ function createScanResult(update, scanData, didWrite = false) {
     };
 }
 
-function printDefaultScanResult(result) {
-    console.log("✔ Project scan completed");
-    console.log("");
+function printChanges(updatedFiles) {
     console.log("Changes:");
 
-    if (result.updatedFiles.length === 0) {
-        console.log("- No changes");
-    } else {
-        for (const filePath of result.updatedFiles) {
-            console.log(`- Updated ${filePath}`);
-        }
+    if (updatedFiles.length === 0) {
+        console.log("* No changes");
+        return;
     }
 
+    for (const filePath of updatedFiles) {
+        console.log(`* Updated ${filePath}`);
+    }
+}
+
+function printDefaultScanResult(result) {
+    console.log("\u2714 Project scan completed");
+    console.log("");
+    printChanges(result.updatedFiles);
     console.log("");
     console.log("Summary:");
-    console.log(`- Project type: ${result.project.type}`);
+    console.log(`* Project type: ${result.project.type}`);
     console.log(
-        `- Entry points: ${
+        `* Entry points: ${
             result.project.entryPoints.length > 0
                 ? result.project.entryPoints.join(", ")
                 : "None detected"
         }`,
     );
+}
+
+function printAutoScanResult(result) {
+    console.log("\u2714 Project scan completed");
+    console.log("");
+    printChanges(result.updatedFiles);
+    console.log("");
+    console.log("Mode:");
+    console.log("* auto");
+}
+
+function printCheckResult(update) {
+    if (update.skipped) {
+        console.log("\u2716 Project context cannot be checked");
+        console.log("");
+        console.log("Reason:");
+        console.log("* AUTO-GENERATED markers not found in ai/project.md");
+        console.log("");
+        console.log("Next:");
+        console.log("* Run 'ai-dev-workflow scan' to regenerate.");
+        return;
+    }
+
+    if (!update.changed) {
+        console.log("\u2714 Project context is up to date");
+        console.log("");
+        console.log("Checked:");
+        console.log("* ai/project.md AUTO-GENERATED section");
+        return;
+    }
+
+    console.log("\u2716 Project context is outdated");
+    console.log("");
+    console.log("Changes:");
+    console.log("* ai/project.md generated section is out of date");
+    console.log("");
+    console.log("Next:");
+    console.log("* Run 'ai-dev-workflow scan' to update.");
+}
+
+function printSkippedUpdateResult() {
+    console.log("\u2716 Project scan cannot update project context");
+    console.log("");
+    console.log("Reason:");
+    console.log("* AUTO-GENERATED markers not found in ai/project.md");
+    console.log("");
+    console.log("Next:");
+    console.log("* Add AUTO-GENERATED markers or regenerate ai/project.md.");
 }
 
 export async function runScan(options = {}) {
@@ -288,14 +340,12 @@ export async function runScan(options = {}) {
         const update = getProjectMdUpdate(content);
         const result = createScanResult(update, scanData);
 
-        if (!update.changed) {
-            console.log("Project context is up to date.");
-            return result;
+        printCheckResult(update);
+
+        if (update.changed) {
+            process.exitCode = 1;
         }
 
-        console.log("Project context is outdated.");
-        console.log("Run 'ai-dev-workflow scan' to update.");
-        process.exitCode = 1;
         return result;
     }
 
@@ -305,7 +355,7 @@ export async function runScan(options = {}) {
 
     if (!update.changed) {
         if (mode === "auto") {
-            console.log("No changes.");
+            printAutoScanResult(result);
             return result;
         }
 
@@ -314,12 +364,13 @@ export async function runScan(options = {}) {
     }
 
     if (update.skipped) {
+        printSkippedUpdateResult();
         process.exitCode = 1;
         return result;
     }
 
     if (mode === "auto") {
-        console.log("Project context updated.");
+        printAutoScanResult(result);
         return result;
     }
 

@@ -67,6 +67,26 @@ The scan output includes:
 
 Manual notes below the AUTO-GENERATED block are preserved.
 
+### `npx ai-dev-workflow scan --check`
+
+Validates whether the AUTO-GENERATED section of `ai/project.md` is up to date without writing files.
+
+This is useful for CI because it returns exit code `1` when project context is outdated or cannot be checked.
+
+```bash
+npx ai-dev-workflow scan --check
+```
+
+### `npx ai-dev-workflow scan --auto`
+
+Updates `ai/project.md` automatically with no prompts or confirmation.
+
+This is useful for automation where project context should be refreshed as part of a scripted workflow.
+
+```bash
+npx ai-dev-workflow scan --auto
+```
+
 ## Supported Project Types
 
 The scanner currently detects these high-level project types:

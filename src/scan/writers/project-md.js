@@ -117,8 +117,6 @@ export function updateProjectMd(newContent) {
     }
 
     if (update.skipped) {
-        console.log(update.reason);
-        console.log("Skipping update to avoid overwriting manual content.");
         return update;
     }
 

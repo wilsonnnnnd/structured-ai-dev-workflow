@@ -16,10 +16,14 @@ Commands:
   init        Copy workflow template into the current repository
   scan        Update ai/project.md project context
 
-Options:
+Init options:
   --dry-run   Show what init would create or skip without writing files
+
+Scan options:
   --check     Check whether scan output is up to date without writing files
   --auto      Update project context without prompts or extra guidance
+
+Global options:
   --help      Show this help message
   --version   Show package version`);
 }

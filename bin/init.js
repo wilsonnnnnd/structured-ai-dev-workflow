@@ -51,13 +51,19 @@ function printList(title, items) {
     console.log(`${title}:`);
 
     if (items.length === 0) {
-        console.log("- none");
+        console.log("* none");
         return;
     }
 
     for (const item of items) {
-        console.log(`- ${item}`);
+        console.log(`* ${item}`);
     }
+}
+
+function printNext() {
+    console.log("");
+    console.log("Next:");
+    console.log("* Run 'ai-dev-workflow scan' to update project context.");
 }
 
 export async function runInit(options = {}) {
@@ -70,20 +76,24 @@ export async function runInit(options = {}) {
         skipped: [],
     };
 
-    console.log("Initializing AI Dev Workflow...");
     copyDir(templateDir, initOptions.targetDir, initOptions, results);
 
     if (initOptions.dryRun) {
+        console.log("\u2714 Init completed");
+        console.log("");
         printList("Would create", results.created);
+        console.log("");
         printList("Would skip", results.skipped);
-        console.log("Run 'ai-dev-workflow scan' to update project context.");
+        printNext();
         return results;
     }
 
+    console.log("\u2714 Init completed");
+    console.log("");
     printList("Created", results.created);
+    console.log("");
     printList("Skipped", results.skipped);
-    console.log("Done.");
-    console.log("Run 'ai-dev-workflow scan' to update project context.");
+    printNext();
 
     return results;
 }

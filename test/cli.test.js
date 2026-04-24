@@ -129,7 +129,6 @@ old generated content
             writeFile("bin/cli.js", "#!/usr/bin/env node\n");
 
             const result = await withMutedConsole(() => runScan());
-
             const updated = fs.readFileSync("ai/project.md", "utf-8");
 
             assert.equal(result.changed, true);
@@ -173,6 +172,28 @@ old generated content
         });
     });
 
+    await t.test("scan check reports missing markers", async () => {
+        await withTempProject(async () => {
+            process.exitCode = 0;
+            writeFile("ai/project.md", "# Project Context\n\nmanual only\n");
+            writeFile("package.json", JSON.stringify({ name: "scan-target" }));
+            writeFile("bin/cli.js", "#!/usr/bin/env node\n");
+
+            const { output, result } = await withCapturedConsole(() =>
+                runScan({ mode: "check" }),
+            );
+
+            assert.equal(result.changed, true);
+            assert.equal(process.exitCode, 1);
+            assert.match(output.join("\n"), /Project context cannot be checked/);
+            assert.match(
+                output.join("\n"),
+                /Reason:\n\* AUTO-GENERATED markers not found in ai\/project\.md/,
+            );
+            process.exitCode = 0;
+        });
+    });
+
     await t.test("scan auto updates changed generated content", async () => {
         await withTempProject(async () => {
             writeFile(
@@ -209,10 +230,67 @@ old generated content
 
             assert.equal(result.changed, true);
             assert.deepEqual(result.updatedFiles, ["ai/project.md"]);
-            assert.match(output.join("\n"), /✔ Project scan completed/);
-            assert.match(output.join("\n"), /Changes:\n- Updated ai\/project\.md/);
-            assert.match(output.join("\n"), /Summary:\n- Project type: cli-tool/);
-            assert.match(output.join("\n"), /- Entry points: bin\/cli\.js/);
+            assert.match(output.join("\n"), /Project scan completed/);
+            assert.match(output.join("\n"), /Changes:\n\* Updated ai\/project\.md/);
+            assert.match(output.join("\n"), /Summary:\n\* Project type: cli-tool/);
+            assert.match(output.join("\n"), /\* Entry points: bin\/cli\.js/);
+        });
+    });
+
+    await t.test("scan check returns up to date after scan", async () => {
+        await withTempProject(async () => {
+            process.exitCode = 0;
+            writeFile("package.json", JSON.stringify({ name: "scan-target" }));
+            writeFile("bin/cli.js", "#!/usr/bin/env node\n");
+
+            await withMutedConsole(() => runScan());
+            await withMutedConsole(() => runScan());
+            const { output, result } = await withCapturedConsole(() =>
+                runScan({ mode: "check" }),
+            );
+
+            assert.equal(result.changed, false);
+            assert.equal(process.exitCode, 0);
+            assert.match(output.join("\n"), /Project context is up to date/);
+            assert.match(
+                output.join("\n"),
+                /Checked:\n\* ai\/project\.md AUTO-GENERATED section/,
+            );
+        });
+    });
+
+    await t.test("scan auto prints no changes when up to date", async () => {
+        await withTempProject(async () => {
+            writeFile("package.json", JSON.stringify({ name: "scan-target" }));
+            writeFile("bin/cli.js", "#!/usr/bin/env node\n");
+
+            await withMutedConsole(() => runScan());
+            await withMutedConsole(() => runScan());
+            const { output, result } = await withCapturedConsole(() =>
+                runScan({ mode: "auto" }),
+            );
+
+            assert.equal(result.changed, false);
+            assert.deepEqual(result.updatedFiles, []);
+            assert.match(output.join("\n"), /Project scan completed/);
+            assert.match(output.join("\n"), /Changes:\n\* No changes/);
+            assert.match(output.join("\n"), /Mode:\n\* auto/);
+        });
+    });
+
+    await t.test("default scan prints no changes when up to date", async () => {
+        await withTempProject(async () => {
+            writeFile("package.json", JSON.stringify({ name: "scan-target" }));
+            writeFile("bin/cli.js", "#!/usr/bin/env node\n");
+
+            await withMutedConsole(() => runScan());
+            await withMutedConsole(() => runScan());
+            const { output, result } = await withCapturedConsole(() => runScan());
+
+            assert.equal(result.changed, false);
+            assert.deepEqual(result.updatedFiles, []);
+            assert.match(output.join("\n"), /Project scan completed/);
+            assert.match(output.join("\n"), /Changes:\n\* No changes/);
         });
     });
 });
