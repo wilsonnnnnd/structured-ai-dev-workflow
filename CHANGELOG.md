@@ -1,5 +1,16 @@
 # ai-dev-workflow
 
+## 0.4.0
+
+### Minor Changes
+
+- 010f467: Introduce scalable indexing with directory grouping and project summary layer
+
+  - add file-groups.json for directory-level structure understanding
+  - add summary.json for global scan metadata
+  - prevent index explosion with controlled limits
+  - improve CLI output consistency and CI integration
+
 ## 0.3.1
 
 ### Patch Changes
