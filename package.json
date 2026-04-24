@@ -22,7 +22,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/wilsonnnnnd/structured-ai-dev-workflow.git"
+        "url": "git+https://github.com/wilsonnnnnd/ai-dev-workflow.git"
     },
     "files": [
         "bin",
