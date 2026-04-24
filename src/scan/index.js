@@ -14,7 +14,7 @@ import {
 } from "./detectors/structure.js";
 import { exists, isDirectory } from "./fs-utils.js";
 import { detectPackageMetadata, detectTechStack } from "./package-utils.js";
-import { updateProjectMd } from "./writers/project-md.js";
+import { getProjectMdUpdate, updateProjectMd } from "./writers/project-md.js";
 
 function formatDescriptiveList(items) {
     return items.map((item) =>
@@ -88,7 +88,7 @@ function mergeStructureWithReferences(structure, reusableSystem, risks) {
     return [...structureByLabel.values()];
 }
 
-export function buildMarkdown() {
+export function generateProjectMdContent() {
     const projectType = detectProjectType();
     const techStack = detectTechStack(projectType);
     const packageMetadata = detectPackageMetadata();
@@ -163,6 +163,19 @@ export function buildMarkdown() {
         }
     }
 
+    lines.push(
+        "",
+        "## AI Development Notes",
+        "- This is an npm CLI tool",
+        "- Entry point: bin/cli.js",
+        "- Template files are copied into user projects during init",
+        "- template/ paths are runtime template sources; do not rewrite them as generated output paths",
+        "- .claude/skills and ai/tests are generated in user projects when present in the template",
+        "- Do not modify generated files unless explicitly required",
+        "- Preserve package manager (npm/yarn/pnpm)",
+        "- Follow existing file structure when adding new features",
+    );
+
     lines.push("", "## Structure Overview");
     if (mergedStructure.length === 0) {
         lines.push("- No standard project structure detected");
@@ -206,14 +219,45 @@ export function buildMarkdown() {
     return lines.join("\n");
 }
 
-export async function runScan() {
-    console.log("Scanning current project...");
+export async function runScan(options = {}) {
+    const mode = options.mode || "normal";
+    const content = generateProjectMdContent();
 
-    const content = buildMarkdown();
-    updateProjectMd(content);
+    if (mode === "check") {
+        const update = getProjectMdUpdate(content);
+
+        if (!update.changed) {
+            console.log("Project context is up to date.");
+            return update;
+        }
+
+        console.log("Project context is outdated.");
+        console.log("Run 'ai-dev-workflow scan' to update.");
+        process.exitCode = 1;
+        return update;
+    }
+
+    const update = updateProjectMd(content);
+
+    if (!update.changed) {
+        console.log(mode === "auto" ? "No changes." : "No changes.");
+        return update;
+    }
+
+    if (update.skipped) {
+        process.exitCode = 1;
+        return update;
+    }
+
+    if (mode === "auto") {
+        console.log("Project context updated.");
+        return update;
+    }
 
     console.log("Updated ai/project.md");
     console.log(
         "Review the AUTO-GENERATED section and add any project-specific notes under Manual Notes.",
     );
+
+    return update;
 }

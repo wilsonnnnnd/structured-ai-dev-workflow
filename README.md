@@ -8,6 +8,18 @@
 
 It is meant for teams that want AI tools to work from stable repository guidance instead of starting every task from scratch.
 
+## Why this exists
+
+AI tools lose project context between sessions, tools, and handoffs. `ai-dev-workflow` creates persistent project memory inside the repository so assistants can start from the same structure, rules, and constraints every time.
+
+This helps AI tools like Claude, Codex, and Cursor stay consistent instead of requiring repeated prompt explanations for the same project.
+
+## Use cases
+
+- switching between AI tools
+- maintaining consistent AI workflow
+- avoiding repeated prompt explanations
+
 ## Quick Start
 
 Run in an existing project directory:

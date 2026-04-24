@@ -10,6 +10,7 @@
         "ai-dev-workflow": "bin/cli.js"
     },
     "scripts": {
+        "test": "node test/cli.test.js",
         "release:check": "npm pack --dry-run",
         "changeset": "changeset",
         "version-packages": "changeset version",

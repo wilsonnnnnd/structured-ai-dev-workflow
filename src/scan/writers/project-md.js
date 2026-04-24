@@ -1,6 +1,8 @@
 import {
     AUTO_GENERATED_END,
     AUTO_GENERATED_START,
+    LEGACY_AUTO_GENERATED_END,
+    LEGACY_AUTO_GENERATED_START,
 } from "../constants.js";
 import {
     ensureDir,
@@ -9,13 +11,10 @@ import {
     writeText,
 } from "../fs-utils.js";
 
-export function updateProjectMd(newContent) {
-    const relativePath = "ai/project.md";
+const PROJECT_MD_PATH = "ai/project.md";
 
-    ensureDir("ai");
-
-    if (!exists(relativePath)) {
-        const initial = `# Project Context
+function createProjectMdContent(newContent) {
+    return `# Project Context
 
 ${AUTO_GENERATED_START}
 ${newContent}
@@ -28,25 +27,103 @@ ${AUTO_GENERATED_END}
 - Preserve backward compatibility for shared code paths, public APIs, and common workflows where possible.
 - Treat config, environment behavior, routing, and schema changes as higher-risk areas that need extra caution.
 `;
-        writeText(relativePath, initial);
-        return;
+}
+
+function findMarkers(content) {
+    const markerSets = [
+        {
+            start: AUTO_GENERATED_START,
+            end: AUTO_GENERATED_END,
+        },
+        {
+            start: LEGACY_AUTO_GENERATED_START,
+            end: LEGACY_AUTO_GENERATED_END,
+        },
+    ];
+
+    for (const markers of markerSets) {
+        const startIndex = content.indexOf(markers.start);
+        const endIndex = content.indexOf(markers.end);
+
+        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+            return {
+                ...markers,
+                startIndex,
+                endIndex,
+            };
+        }
     }
 
-    const existing = readText(relativePath);
-    const startIndex = existing.indexOf(AUTO_GENERATED_START);
-    const endIndex = existing.indexOf(AUTO_GENERATED_END);
+    return null;
+}
 
-    if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-        console.log("AUTO-GENERATED markers not found in ai/project.md.");
-        console.log("Skipping update to avoid overwriting manual content.");
-        return;
-    }
+function normalizeSection(content) {
+    return content.replace(/\r\n/g, "\n").replace(/^\n/, "").replace(/\n$/, "");
+}
 
-    const before = existing.slice(0, startIndex + AUTO_GENERATED_START.length);
-    const after = existing.slice(endIndex);
-    const updated = `${before}
+function buildUpdatedContent(existing, markers, newContent) {
+    const before = existing.slice(0, markers.startIndex);
+    const after = existing.slice(markers.endIndex + markers.end.length);
+
+    return `${before}${AUTO_GENERATED_START}
 ${newContent}
-${after}`;
+${AUTO_GENERATED_END}${after}`;
+}
 
-    writeText(relativePath, updated);
+export function getProjectMdUpdate(newContent) {
+    if (!exists(PROJECT_MD_PATH)) {
+        return {
+            changed: true,
+            currentSection: null,
+            nextSection: newContent,
+            content: createProjectMdContent(newContent),
+        };
+    }
+
+    const existing = readText(PROJECT_MD_PATH);
+    const markers = findMarkers(existing);
+
+    if (!markers) {
+        return {
+            changed: true,
+            currentSection: null,
+            nextSection: newContent,
+            content: null,
+            skipped: true,
+            reason: "AUTO-GENERATED markers not found in ai/project.md.",
+        };
+    }
+
+    const currentSection = existing.slice(
+        markers.startIndex + markers.start.length,
+        markers.endIndex,
+    );
+    const changed =
+        normalizeSection(currentSection) !== normalizeSection(newContent);
+
+    return {
+        changed,
+        currentSection,
+        nextSection: newContent,
+        content: changed ? buildUpdatedContent(existing, markers, newContent) : existing,
+    };
+}
+
+export function updateProjectMd(newContent) {
+    const update = getProjectMdUpdate(newContent);
+
+    if (!update.changed) {
+        return update;
+    }
+
+    if (update.skipped) {
+        console.log(update.reason);
+        console.log("Skipping update to avoid overwriting manual content.");
+        return update;
+    }
+
+    ensureDir("ai");
+    writeText(PROJECT_MD_PATH, update.content);
+
+    return update;
 }

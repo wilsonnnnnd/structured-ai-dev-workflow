@@ -7,10 +7,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const templateDir = path.resolve(__dirname, "../template");
-const targetDir = process.cwd();
 
-function copyDir(src, dest) {
-    if (!fs.existsSync(dest)) {
+function formatRelative(filePath, baseDir) {
+    return path.relative(baseDir, filePath).replaceAll(path.sep, "/");
+}
+
+function copyDir(src, dest, options, results) {
+    if (!options.dryRun && !fs.existsSync(dest)) {
         fs.mkdirSync(dest, { recursive: true });
     }
 
@@ -20,20 +23,67 @@ function copyDir(src, dest) {
         const stat = fs.statSync(srcPath);
 
         if (stat.isDirectory()) {
-            copyDir(srcPath, destPath);
+            copyDir(srcPath, destPath, options, results);
         } else {
-            if (!fs.existsSync(destPath)) {
+            const relativePath = formatRelative(destPath, options.targetDir);
+
+            if (fs.existsSync(destPath)) {
+                results.skipped.push(relativePath);
+            } else {
+                results.created.push(relativePath);
+
+                if (options.dryRun) {
+                    continue;
+                }
+
+                const parentDir = path.dirname(destPath);
+                if (!fs.existsSync(parentDir)) {
+                    fs.mkdirSync(parentDir, { recursive: true });
+                }
+
                 fs.copyFileSync(srcPath, destPath);
             }
         }
     }
 }
 
-export async function runInit() {
+function printList(title, items) {
+    console.log(`${title}:`);
+
+    if (items.length === 0) {
+        console.log("- none");
+        return;
+    }
+
+    for (const item of items) {
+        console.log(`- ${item}`);
+    }
+}
+
+export async function runInit(options = {}) {
+    const initOptions = {
+        dryRun: Boolean(options.dryRun),
+        targetDir: options.targetDir || process.cwd(),
+    };
+    const results = {
+        created: [],
+        skipped: [],
+    };
+
     console.log("Initializing AI Dev Workflow...");
-    copyDir(templateDir, targetDir);
+    copyDir(templateDir, initOptions.targetDir, initOptions, results);
+
+    if (initOptions.dryRun) {
+        printList("Would create", results.created);
+        printList("Would skip", results.skipped);
+        console.log("Run 'ai-dev-workflow scan' to update project context.");
+        return results;
+    }
+
+    printList("Created", results.created);
+    printList("Skipped", results.skipped);
     console.log("Done.");
-    console.log("Next:");
-    console.log("- customize ai/project.md if needed");
-    console.log("- run: npx ai-dev-workflow scan");
+    console.log("Run 'ai-dev-workflow scan' to update project context.");
+
+    return results;
 }
