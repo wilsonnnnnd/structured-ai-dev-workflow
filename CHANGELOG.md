@@ -1,5 +1,11 @@
 # repo-context-kit
 
+## 0.5.1
+
+### Patch Changes
+
+- 0ddc1be: 不同 AI 工具用同一套规则：先理解项目，再判断需求是否清楚，不清楚就问问题，清楚再生成结构化 implementation prompt。
+
 ## 0.5.0
 
 ### Minor Changes
