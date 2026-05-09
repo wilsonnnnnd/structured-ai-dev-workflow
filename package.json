@@ -1,6 +1,6 @@
 {
     "name": "repo-context-kit",
-    "version": "1.4.1",
+    "version": "1.5.0",
     "description": "A project-aware AI development workflow initializer and scanner.",
     "type": "module",
     "engines": {

@@ -1,5 +1,15 @@
 # repo-context-kit
 
+## 1.5.0
+
+### Minor Changes
+
+- d84ecc0: update AI workflow
+
+### Patch Changes
+
+- 0261c86: test Adds MCP server support for Claude, Cursor, VS Code, and scripts.
+
 ## 1.4.1
 
 ### Patch Changes
