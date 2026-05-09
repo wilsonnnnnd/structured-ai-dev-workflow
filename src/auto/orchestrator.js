@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { runTask } from "../../bin/task.js";
 import { buildWorksetContext } from "../../bin/context.js";
-import { runScan, computeScanCheckState } from "../scan/index.js";
+import { runScan, computeContextFreshness, computeScanCheckState } from "../scan/index.js";
 import { loadTask as createExecutorPause } from "../executor/runner.js";
 import { createVirtualTask } from "../task/virtual-task.js";
 import { withRepoRoot } from "../runtime/root-context.js";
@@ -11,6 +11,8 @@ import { appendRuntimeSession } from "../runtime/sessions.js";
 import { listRecentLoopEvents } from "../loop/store.js";
 import { readLessonsFile } from "../lessons/store.js";
 import { writeRuntimeSnapshot } from "../runtime/snapshot.js";
+import { getRuntimeModeConfig, resolveRuntimeMode } from "../runtime/rdl/modes.js";
+import { readShcV1Status } from "../runtime/rdl/shc.js";
 import { loadDesignDoc } from "../docs/doc-loader.js";
 import { extractPlanningData, buildPlanningSource } from "../docs/doc-extractor.js";
 
@@ -202,6 +204,8 @@ export async function orchestrateAuto({
     const scan = await computeScanStatus(rootDir);
     const lessons = readLessons(rootDir);
     const loop = readLoopEvents(rootDir);
+    const runtimeMode = resolveRuntimeMode({ repoRoot: rootDir });
+    const runtimeModeConfig = getRuntimeModeConfig(runtimeMode);
 
     let planning = null;
     let planningSource = undefined;
@@ -254,6 +258,8 @@ export async function orchestrateAuto({
             : ["repo-context-kit scan", docMode ? `repo-context-kit auto --from-doc "${trimmedDocPath}" --json` : `repo-context-kit auto --goal "${trimmedGoal}" --json`];
         const runtime = {
             writeEnabled: false,
+            mode: runtimeMode,
+            modeConfig: runtimeModeConfig,
             ...(docMode
                 ? {
                     planning: {
@@ -269,6 +275,8 @@ export async function orchestrateAuto({
                 }
                 : {}),
         };
+        const shc = readShcV1Status({ repoRoot: rootDir });
+        const freshness = withRepoRoot(rootDir, () => computeContextFreshness({ worksetFiles: virtual.relatedFiles }));
 
         const contract = buildRuntimeContract({
             repoRoot: rootDir,
@@ -284,7 +292,8 @@ export async function orchestrateAuto({
             prompt: virtual.prompt,
             lessons,
             loop,
-            runtime,
+            runtime: { ...runtime, shc, freshness },
+            rdl: { mode: runtimeMode, shc, freshness },
             nextActions,
             executionState: { sessionId: null, pauseId: null, phase: "planning", status: "planned" },
         });
@@ -369,6 +378,8 @@ export async function orchestrateAuto({
         createdTaskDetail = "";
     }
     const parsedDetail = parseTaskDetailMarkdown(createdTaskDetail);
+    const shc = readShcV1Status({ repoRoot: rootDir });
+    const freshness = withRepoRoot(rootDir, () => computeContextFreshness({ worksetFiles }));
 
     const contract = buildRuntimeContract({
         repoRoot: rootDir,
@@ -393,6 +404,10 @@ export async function orchestrateAuto({
         loop,
         runtime: {
             writeEnabled: true,
+            mode: runtimeMode,
+            modeConfig: runtimeModeConfig,
+            shc,
+            freshness,
             ...(docMode
                 ? {
                     planning: {
@@ -408,6 +423,7 @@ export async function orchestrateAuto({
                 }
                 : {}),
         },
+        rdl: { mode: runtimeMode, shc, freshness },
         nextActions: pauseId ? [`repo-context-kit execute confirm ${pauseId}`] : [],
         executionState: { sessionId, pauseId, phase: pause?.state?.phase ?? null, status: "started" },
     });

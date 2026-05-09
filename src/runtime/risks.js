@@ -1,3 +1,5 @@
+import { getRuntimeModeConfig } from "./rdl/modes.js";
+
 function uniqueStrings(values) {
     return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))].sort((a, b) =>
         a.localeCompare(b),
@@ -172,6 +174,13 @@ export function collectRuntimeRisks({
     const scanStatus = String(scan?.status ?? "").trim().toLowerCase();
     const taskObj = task && typeof task === "object" ? task : null;
     const worksetObj = workset && typeof workset === "object" ? workset : null;
+    const runtimeObj = runtime && typeof runtime === "object" ? runtime : null;
+    const runtimeMode = String(runtimeObj?.mode ?? "").trim().toUpperCase() || "STANDARD";
+    const modeConfig = runtimeObj?.modeConfig && typeof runtimeObj.modeConfig === "object"
+        ? runtimeObj.modeConfig
+        : getRuntimeModeConfig(runtimeMode);
+    const shc = runtimeObj?.shc && typeof runtimeObj.shc === "object" ? runtimeObj.shc : null;
+    const freshness = runtimeObj?.freshness && typeof runtimeObj.freshness === "object" ? runtimeObj.freshness : null;
 
     if (scanStatus === "missing") {
         pushRisk(risks, {
@@ -193,6 +202,109 @@ export function collectRuntimeRisks({
             evidence: { repoRoot: root || "-" },
             suggestedAction: "Run repo-context-kit scan to refresh .aidw context before making changes.",
         });
+    }
+
+    if (!shc || shc.present !== true) {
+        pushRisk(risks, {
+            id: "runtime-shc-missing",
+            severity: "warning",
+            source: "runtime",
+            category: "context",
+            message: "Stable Human Context (SHC) is missing from .aidw/project.md.",
+            evidence: { path: ".aidw/project.md", shc: "missing" },
+            suggestedAction: "Fill the SHC (v1) section in .aidw/project.md Manual Notes to stabilize long-term context.",
+        });
+    } else if (shc.complete !== true || shc.bounded !== true) {
+        pushRisk(risks, {
+            id: "runtime-shc-incomplete",
+            severity: "warning",
+            source: "runtime",
+            category: "context",
+            message: "Stable Human Context (SHC) is incomplete or exceeds bounds.",
+            evidence: {
+                missingSections: Array.isArray(shc.missingSections) ? shc.missingSections : [],
+                incompleteSections: Array.isArray(shc.incompleteSections) ? shc.incompleteSections : [],
+                overLimitSections: Array.isArray(shc.overLimitSections) ? shc.overLimitSections : [],
+                limits: shc.limits ?? null,
+            },
+            suggestedAction: "Complete missing SHC sections and keep each section concise to reduce context drift.",
+        });
+    }
+
+    if (freshness) {
+        const score = Number.isFinite(freshness.score) ? Number(freshness.score) : null;
+        const signals = Array.isArray(freshness.signals) ? freshness.signals : [];
+        const signalIds = uniqueStrings(signals.map((s) => s?.id));
+        const deductions = signals
+            .map((s) => {
+                const id = String(s?.id ?? "").trim();
+                const penalty = Number.isFinite(Number(s?.penalty)) ? Number(s.penalty) : null;
+                if (!id) return null;
+                return penalty != null ? `${id} (-${penalty})` : id;
+            })
+            .filter(Boolean);
+        const suggestedActions = Array.isArray(freshness.suggestedActions) ? freshness.suggestedActions : [];
+        const minFreshness = Number.isFinite(modeConfig?.riskTolerance?.minFreshnessScoreToWrite)
+            ? Number(modeConfig.riskTolerance.minFreshnessScoreToWrite)
+            : 65;
+        const stale = score != null ? score < 80 : Boolean(freshness.scanStale);
+        const severity = runtimeMode === "SAFE" && score != null && score < minFreshness ? "blocker" : "warning";
+
+        if (stale) {
+            pushRisk(risks, {
+                id: "runtime-context-stale",
+                severity,
+                source: "runtime",
+                category: "context",
+                message: "Runtime context freshness is low; context drift risk is elevated.",
+                evidence: { score, deductions: deductions.slice(0, 10), signals: signalIds.slice(0, 10), minFreshness },
+                suggestedAction: suggestedActions[0] || "Run repo-context-kit scan to refresh .aidw context before writing changes.",
+            });
+        }
+        if (signalIds.includes("symbols_drifted")) {
+            pushRisk(risks, {
+                id: "runtime-symbol-drift",
+                severity: "warning",
+                source: "runtime",
+                category: "context",
+                message: "Symbols may have drifted since the last scan.",
+                evidence: { score, signals: signalIds.slice(0, 10) },
+                suggestedAction: "Run repo-context-kit scan to refresh symbols before relying on them for planning.",
+            });
+        }
+        if (signalIds.includes("entrypoints_changed")) {
+            pushRisk(risks, {
+                id: "runtime-entrypoint-drift",
+                severity: "warning",
+                source: "runtime",
+                category: "context",
+                message: "Entrypoints may have changed since the last scan.",
+                evidence: { score, signals: signalIds.slice(0, 10) },
+                suggestedAction: "Re-run repo-context-kit scan to re-detect entrypoints.",
+            });
+        }
+        if (signalIds.includes("tasks_stale")) {
+            pushRisk(risks, {
+                id: "runtime-task-stale",
+                severity: "warning",
+                source: "runtime",
+                category: "context",
+                message: "Tasks and task mappings may be stale.",
+                evidence: { score, signals: signalIds.slice(0, 10) },
+                suggestedAction: "Update tasks and re-run repo-context-kit scan to keep task mappings consistent.",
+            });
+        }
+        if (signalIds.includes("snapshots_missing")) {
+            pushRisk(risks, {
+                id: "runtime-snapshot-missing",
+                severity: "warning",
+                source: "runtime",
+                category: "stability",
+                message: "No runtime snapshots were detected for audit and replay.",
+                evidence: { score, signals: signalIds.slice(0, 10) },
+                suggestedAction: "Create a runtime snapshot after key milestones to improve auditability and replay.",
+            });
+        }
     }
 
     const planning = runtime && typeof runtime === "object" ? runtime.planning : null;

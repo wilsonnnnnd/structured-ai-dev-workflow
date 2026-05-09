@@ -16,6 +16,7 @@ import { startUiServer } from "../bin/ui.js";
 import { PROJECT_TYPES } from "../src/scan/constants.js";
 import { detectProjectType } from "../src/scan/detectors/project-type.js";
 import { parseTaskRegistry } from "../src/scan/task-registry.js";
+import { computeContextFreshness } from "../src/scan/index.js";
 import { collectRuntimeRisks } from "../src/runtime/risks.js";
 import { normalizeRuntimeContract } from "../src/runtime/normalize.js";
 import { validateRuntimeContract } from "../src/runtime/runtime-schema.js";
@@ -23,6 +24,7 @@ import { serializeRuntimeContract } from "../src/runtime/serialize.js";
 import { writeRuntimeSnapshot, readRuntimeSnapshot } from "../src/runtime/snapshot.js";
 import { loadDesignDoc } from "../src/docs/doc-loader.js";
 import { extractPlanningData } from "../src/docs/doc-extractor.js";
+import { getRuntimeModeConfig } from "../src/runtime/rdl/modes.js";
 
 const originalCwd = process.cwd();
 
@@ -451,9 +453,17 @@ test("mcp server requires enable flags for write/test tools and validates token 
                 assert.equal(Array.isArray(runtimePayload.risks), true);
                 assert.equal(runtimePayload.risks.some((r) => r && r.id === "runtime-write-enabled"), true);
 
+                const confirmed = await request("tools/call", {
+                    name: "rck.gate.confirmTask",
+                    arguments: { taskId: "T-000" },
+                });
+                assert.equal(Boolean(confirmed.error), false);
+                const confirmedPayload = JSON.parse(confirmed.result.content[0].text);
+                assert.equal(Boolean(confirmedPayload.token), true);
+
                 const runTest = await request("tools/call", {
                     name: "rck.gate.runTest",
-                    arguments: { taskId: "T-001", token: "not-a-token" },
+                    arguments: { taskId: "T-001", token: "not-a-token", runtimeMode: "STANDARD", evidence: { summaryOfChange: "run tests" } },
                 });
                 assert.equal(Boolean(runTest.error), true);
                 assert.equal(runTest.error.code, -32603);
@@ -461,7 +471,14 @@ test("mcp server requires enable flags for write/test tools and validates token 
 
                 const started = await request("tools/call", {
                     name: "rck.auto.start",
-                    arguments: { goal: "Start session", deep: false },
+                    arguments: {
+                        goal: "Start session",
+                        deep: false,
+                        runtimeMode: "STANDARD",
+                        taskId: "T-000",
+                        token: confirmedPayload.token,
+                        evidence: { summaryOfChange: "start auto session" },
+                    },
                 });
                 assert.equal(Boolean(started.error), false);
                 const startPayload = JSON.parse(started.result.content[0].text);
@@ -477,6 +494,207 @@ test("mcp server requires enable flags for write/test tools and validates token 
                 assert.equal(Boolean(inspectPayload.match.prompt), false);
             },
         );
+    });
+});
+
+test("scan preserves SHC block outside AUTO-GENERATED section", async () => {
+    await withTempProject(async () => {
+        writeFile(
+            "package.json",
+            JSON.stringify({ name: "shc-preserve", version: "0.0.0", type: "module" }, null, 4) + "\n",
+        );
+        writeFile(
+            "task/task.md",
+            `# Task Registry
+
+## Tasks
+
+| ID | Title | Status | Priority | Owner | Dependencies | File |
+|----|------|--------|----------|-------|--------------|------|
+`,
+        );
+        writeFile(".aidw/meta.json", JSON.stringify({ version: 1 }, null, 4) + "\n");
+        writeFile(".aidw/scan/last.json", JSON.stringify({ status: "not-run" }, null, 4) + "\n");
+        writeFile(
+            ".aidw/project.md",
+            `# Project Context
+
+<!-- AUTO-GENERATED START -->
+Old content
+<!-- AUTO-GENERATED END -->
+
+## Manual Notes
+
+## Stable Human Context (SHC) (v1)
+
+<!-- SHC:v1 START -->
+### Project Goal
+- KEEP_ME
+<!-- SHC:v1 END -->
+`,
+        );
+
+        await withMutedConsole(() => runScan());
+        const updated = fs.readFileSync(path.resolve(process.cwd(), ".aidw/project.md"), "utf-8");
+        assert.ok(updated.includes("KEEP_ME"));
+        assert.ok(updated.includes("<!-- SHC:v1 START -->"));
+        assert.ok(updated.includes("<!-- AUTO-GENERATED START -->"));
+    });
+});
+
+test("context freshness score is deterministic for the same repo state", async () => {
+    await withTempProject(async () => {
+        writeFile(
+            "package.json",
+            JSON.stringify({ name: "freshness-det", version: "0.0.0", type: "module" }, null, 4) + "\n",
+        );
+        writeFile(
+            "task/task.md",
+            `# Task Registry
+
+## Tasks
+
+| ID | Title | Status | Priority | Owner | Dependencies | File |
+|----|------|--------|----------|-------|--------------|------|
+`,
+        );
+        writeFile(".aidw/index/summary.json", JSON.stringify({ generatedAt: "2026-01-01T00:00:00.000Z" }, null, 4) + "\n");
+        const a = computeContextFreshness({ worksetFiles: ["src/missing.js"] });
+        const b = computeContextFreshness({ worksetFiles: ["src/missing.js"] });
+        assert.deepEqual(a, b);
+    });
+});
+
+test("freshness signals map into runtime risks", async () => {
+    const risks = collectRuntimeRisks({
+        repoRoot: process.cwd(),
+        scan: { status: "fresh", plan: [] },
+        workset: { mode: "digest", files: [], summary: "", text: "" },
+        task: null,
+        runtime: {
+            mode: "STANDARD",
+            modeConfig: getRuntimeModeConfig("STANDARD"),
+            shc: { present: true, complete: true, bounded: true, missingSections: [], incompleteSections: [], overLimitSections: [], limits: {} },
+            freshness: {
+                score: 60,
+                signals: [
+                    { id: "symbols_drifted", penalty: 15 },
+                    { id: "entrypoints_changed", penalty: 20 },
+                    { id: "tasks_stale", penalty: 10 },
+                    { id: "snapshots_missing", penalty: 10 },
+                ],
+                suggestedActions: ["Run repo-context-kit scan"],
+            },
+        },
+    });
+    const ids = risks.map((r) => r.id);
+    assert.ok(ids.includes("runtime-context-stale"));
+    assert.ok(ids.includes("runtime-symbol-drift"));
+    assert.ok(ids.includes("runtime-entrypoint-drift"));
+    assert.ok(ids.includes("runtime-task-stale"));
+    assert.ok(ids.includes("runtime-snapshot-missing"));
+});
+
+test("mcp governed write rejects missing runtimeMode/token/evidence", async () => {
+    await withTempProject(async (tempDir) => {
+        await withMutedConsole(() => runInit());
+        writeFile(
+            "package.json",
+            JSON.stringify({ name: "mcp-governance", version: "0.0.0", type: "module" }, null, 4) + "\n",
+        );
+        await withMutedConsole(() => runScan());
+        await withMcpServer({ args: ["--root", tempDir, "--enable-write"] }, async ({ request }) => {
+            await request("initialize", {});
+            const call = await request("tools/call", {
+                name: "rck.scan",
+                arguments: { mode: "normal" },
+            });
+            assert.equal(Boolean(call.error), true);
+            assert.ok(String(call.error.message).includes("runtimeMode"));
+        });
+    });
+});
+
+test("REVIEW mode rejects MCP write tools", async () => {
+    await withTempProject(async (tempDir) => {
+        await withMutedConsole(() => runInit());
+        writeFile(
+            "package.json",
+            JSON.stringify({ name: "mcp-review", version: "0.0.0", type: "module" }, null, 4) + "\n",
+        );
+        await withMutedConsole(() => runScan());
+        await withMcpServer({ args: ["--root", tempDir, "--enable-write"] }, async ({ request }) => {
+            await request("initialize", {});
+            const confirmed = await request("tools/call", {
+                name: "rck.gate.confirmTask",
+                arguments: { taskId: "T-000" },
+            });
+            const token = JSON.parse(confirmed.result.content[0].text).token;
+            const call = await request("tools/call", {
+                name: "rck.scan",
+                arguments: {
+                    runtimeMode: "REVIEW",
+                    taskId: "T-000",
+                    token,
+                    evidence: { summaryOfChange: "attempt scan" },
+                    mode: "normal",
+                },
+            });
+            assert.equal(Boolean(call.error), true);
+            assert.ok(String(call.error.message).includes("REVIEW"));
+        });
+    });
+});
+
+test("SAFE mode blocks MCP writes when freshness is below threshold", async () => {
+    await withTempProject(async (tempDir) => {
+        await withMutedConsole(() => runInit());
+        writeFile(
+            "package.json",
+            JSON.stringify({ name: "mcp-safe", version: "0.0.0", type: "module" }, null, 4) + "\n",
+        );
+        await withMutedConsole(() => runScan());
+        writeFile(
+            "package.json",
+            JSON.stringify({ name: "mcp-safe", version: "0.0.1", type: "module" }, null, 4) + "\n",
+        );
+        await withMcpServer({ args: ["--root", tempDir, "--enable-write"] }, async ({ request }) => {
+            await request("initialize", {});
+            const confirmed = await request("tools/call", {
+                name: "rck.gate.confirmTask",
+                arguments: { taskId: "T-000" },
+            });
+            const token = JSON.parse(confirmed.result.content[0].text).token;
+            const call = await request("tools/call", {
+                name: "rck.scan",
+                arguments: {
+                    runtimeMode: "SAFE",
+                    taskId: "T-000",
+                    token,
+                    evidence: { summaryOfChange: "attempt scan in SAFE" },
+                    mode: "normal",
+                },
+            });
+            assert.equal(Boolean(call.error), true);
+            assert.ok(String(call.error.message).includes("SAFE mode blocks writes"));
+        });
+    });
+});
+
+test("gate confirm tests appends execution evidence", async () => {
+    await withTempProject(async () => {
+        await withMutedConsole(() => runInit());
+        writeFile(
+            "package.json",
+            JSON.stringify({ name: "gate-ee", version: "0.0.0", type: "module" }, null, 4) + "\n",
+        );
+        await withMutedConsole(() => runScan());
+        await withMutedConsole(() => runGate(["confirm", "task", "T-001", "--json"]));
+        await withMutedConsole(() => runGate(["confirm", "tests", "T-001"]));
+        const loopPath = path.resolve(process.cwd(), ".aidw/context-loop.jsonl");
+        const raw = fs.readFileSync(loopPath, "utf-8");
+        assert.ok(raw.includes("\"type\":\"execution_evidence\""));
+        assert.ok(raw.includes("\"tool\":\"gate.confirm.tests\""));
     });
 });
 

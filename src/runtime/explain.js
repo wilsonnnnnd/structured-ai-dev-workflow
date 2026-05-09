@@ -38,18 +38,24 @@ export function explainRuntimeContract(contract) {
     const sessionStatus = normalized.executionState?.status ?? "-";
     const pauseId = normalized.executionState?.pauseId ?? "-";
     const sessionId = normalized.executionState?.sessionId ?? "-";
+    const rdl = normalized.rdl && typeof normalized.rdl === "object" ? normalized.rdl : null;
+    const runtimeMode = rdl?.mode ? String(rdl.mode).trim() : "-";
+    const freshnessScore = Number.isFinite(Number(rdl?.freshness?.score)) ? Number(rdl.freshness.score) : null;
     const warnings = Array.isArray(validation.warnings) ? validation.warnings : [];
     const errors = Array.isArray(validation.errors) ? validation.errors : [];
     const retention = applySnapshotRetentionPolicy({ repoRoot: normalized.repoRoot || process.cwd() });
     const health = renderHealthSummary({ scanStatus, riskSummary, validation });
+    const deepExplain = runtimeMode === "SAFE" || runtimeMode === "REVIEW" || runtimeMode === "EXPERIMENTAL";
 
     return [
         "# Runtime Contract",
         "",
         `- runtimeVersion: ${normalized.runtimeVersion}`,
+        `- mode: ${runtimeMode || "-"}`,
         normalized.task?.id ? `- taskId: ${normalized.task.id}` : "- taskId: -",
         normalized.task?.title ? `- taskTitle: ${normalized.task.title}` : "- taskTitle: -",
         `- scan: ${scanStatus}`,
+        freshnessScore != null ? `- context_freshness: ${freshnessScore}%` : null,
         `- workset_files: ${worksetSize}`,
         `- risk_count: ${riskCount}`,
         `- risk_severity: blocker=${riskSummary.blocker}, warning=${riskSummary.warning}, info=${riskSummary.info}`,
@@ -58,6 +64,51 @@ export function explainRuntimeContract(contract) {
         `- pauseId: ${pauseId}`,
         `- status: ${sessionStatus}`,
         "",
+        deepExplain && rdl?.freshness
+            ? [
+                "## Context Freshness",
+                "",
+                `- score: ${freshnessScore != null ? `${freshnessScore}%` : "-"}`,
+                "",
+                "### Signals",
+                "",
+                Array.isArray(rdl.freshness.signals) && rdl.freshness.signals.length
+                    ? formatList(
+                        rdl.freshness.signals.map((s) => {
+                            const id = String(s?.id ?? "").trim() || "-";
+                            const penalty = Number.isFinite(Number(s?.penalty)) ? ` (-${Number(s.penalty)})` : "";
+                            return `${id}${penalty}`;
+                        }),
+                    )
+                    : "- None",
+                "",
+                "### Suggested Actions",
+                "",
+                Array.isArray(rdl.freshness.suggestedActions) && rdl.freshness.suggestedActions.length
+                    ? formatList(rdl.freshness.suggestedActions)
+                    : "- None",
+                "",
+            ].join("\n")
+            : null,
+        deepExplain && rdl?.shc
+            ? [
+                "## Stable Human Context (SHC)",
+                "",
+                `- present: ${rdl.shc.present === true ? "true" : "false"}`,
+                `- complete: ${rdl.shc.complete === true ? "true" : "false"}`,
+                `- bounded: ${rdl.shc.bounded === true ? "true" : "false"}`,
+                Array.isArray(rdl.shc.missingSections) && rdl.shc.missingSections.length
+                    ? `- missing_sections:\n${formatList(rdl.shc.missingSections)}`
+                    : "- missing_sections: none",
+                Array.isArray(rdl.shc.incompleteSections) && rdl.shc.incompleteSections.length
+                    ? `- incomplete_sections:\n${formatList(rdl.shc.incompleteSections)}`
+                    : "- incomplete_sections: none",
+                Array.isArray(rdl.shc.overLimitSections) && rdl.shc.overLimitSections.length
+                    ? `- over_limit_sections:\n${formatList(rdl.shc.overLimitSections.map((s) => `${s.section} (lines=${s.lineCount}, chars=${s.charCount})`))}`
+                    : "- over_limit_sections: none",
+                "",
+            ].join("\n")
+            : null,
         "## Compatibility Notes",
         "",
         warnings.length ? formatList(warnings) : "- None",
@@ -74,5 +125,5 @@ export function explainRuntimeContract(contract) {
         "",
         `- valid: ${validation.valid ? "true" : "false"}`,
         errors.length ? `- errors:\n${formatList(errors)}` : "- errors: none",
-    ].join("\n").trimEnd() + "\n";
+    ].filter(Boolean).join("\n").trimEnd() + "\n";
 }

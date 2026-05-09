@@ -26,6 +26,43 @@ ${AUTO_GENERATED_END}
 - Keep changes localized and avoid broad edits to shared or global surfaces unless they are clearly required.
 - Preserve backward compatibility for shared code paths, public APIs, and common workflows where possible.
 - Treat config, environment behavior, routing, and schema changes as higher-risk areas that need extra caution.
+
+## Stable Human Context (SHC) (v1)
+
+<!-- SHC:v1 START -->
+### Project Goal
+- TODO
+
+### Target Users
+- TODO
+
+### Non-goals
+- TODO
+
+### Stack Decisions
+- TODO
+
+### Runtime Constraints
+- TODO
+
+### Directory Conventions
+- TODO
+
+### Config Sources
+- TODO
+
+### Testing Strategy
+- TODO
+
+### Release Constraints
+- TODO
+
+### Files Never Touch
+- TODO
+
+### Deployment Boundaries
+- TODO
+<!-- SHC:v1 END -->
 `;
 }
 

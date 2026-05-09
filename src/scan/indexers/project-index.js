@@ -29,7 +29,7 @@ import {
 } from "../fs-utils.js";
 import { getFastApiEntrypointCandidates } from "../python-utils.js";
 import { getMergedTaskMetadata } from "../task-files.js";
-import { getPackageJsonDigest } from "../package-utils.js";
+import { getLockfileFingerprints, getPackageJsonDigest } from "../package-utils.js";
 
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".py"]);
 const SKIPPED_DIRS = new Set([
@@ -883,6 +883,7 @@ export function updateProjectIndex() {
         indexedSymbols: symbols.length,
         fileGroups: fileGroups.length,
         packageJsonDigest: getPackageJsonDigest(),
+        lockfileFingerprints: getLockfileFingerprints(),
         truncated:
             allImportantFiles.length > MAX_INDEX_FILES ||
             symbols.length >= MAX_INDEX_SYMBOLS ||

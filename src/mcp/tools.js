@@ -6,8 +6,8 @@ import { createVirtualTask } from "../task/virtual-task.js";
 import { buildRuntimeContract } from "../runtime/runtime-contract.js";
 import { inspectRuntimeSession } from "../runtime/sessions.js";
 import { withRepoRoot } from "../runtime/root-context.js";
-import { computeScanCheckState, runScan } from "../scan/index.js";
-import { listRecentLoopEvents } from "../loop/store.js";
+import { computeContextFreshness, computeScanCheckState, runScan } from "../scan/index.js";
+import { appendLoopEvent, listRecentLoopEvents } from "../loop/store.js";
 import { readLessonsFile } from "../lessons/store.js";
 import { validateRuntimeContract } from "../runtime/runtime-schema.js";
 import { serializeJson, serializeRuntimeContract } from "../runtime/serialize.js";
@@ -21,6 +21,9 @@ import { inspectBootstrapPlan } from "../bootstrap/inspect.js";
 import { applyBootstrapPlan } from "../bootstrap/apply.js";
 import { explainBootstrapPlan } from "../bootstrap/explain.js";
 import { diffBootstrapPlan } from "../bootstrap/diff.js";
+import { getRuntimeModeConfig, resolveRuntimeMode } from "../runtime/rdl/modes.js";
+import { readShcV1Status } from "../runtime/rdl/shc.js";
+import { validateGate } from "../gate/state.js";
 
 function asTextResult(text) {
     return {
@@ -65,6 +68,135 @@ function normalizeArgs(value) {
         return value;
     }
     return {};
+}
+
+function isPlainObject(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const proto = Object.getPrototypeOf(value);
+    return proto === Object.prototype || proto === null;
+}
+
+function normalizeRuntimeMode(value) {
+    const raw = String(value ?? "").trim().toUpperCase();
+    if (raw === "SAFE" || raw === "STANDARD" || raw === "REVIEW" || raw === "EXPERIMENTAL") {
+        return raw;
+    }
+    return null;
+}
+
+function requireEvidenceStub(value) {
+    if (!isPlainObject(value)) {
+        const error = new Error("evidence is required (object)");
+        error.code = "MISSING_EVIDENCE";
+        throw error;
+    }
+    const text = JSON.stringify(value);
+    if (text.length > 12_000) {
+        const error = new Error("evidence is too large");
+        error.code = "EVIDENCE_TOO_LARGE";
+        throw error;
+    }
+    return value;
+}
+
+function requireWriteGate({ rootDir, taskId, token, requireTestsConfirmed }) {
+    if (!isNonEmptyString(taskId)) {
+        const error = new Error("taskId is required");
+        error.code = "MISSING_TASK_ID";
+        throw error;
+    }
+    if (!isValidToken(token)) {
+        const error = new Error("token must be a 32-character hex string");
+        error.code = "INVALID_TOKEN";
+        throw error;
+    }
+    const result = validateGate({ taskId, token, requireTestsConfirmed }, rootDir);
+    if (!result.ok) {
+        const error = new Error(result.error || "Gate is not confirmed for this task.");
+        error.code = "GATE_NOT_CONFIRMED";
+        throw error;
+    }
+}
+
+function enforceModeWritePolicy({ mode, rootDir, enforceFreshness = true }) {
+    const config = getRuntimeModeConfig(mode);
+    if (config?.writePolicy === "read_only" || config?.applyAllowed === false) {
+        const error = new Error(`Write is not allowed in runtime mode: ${mode}`);
+        error.code = "MODE_READ_ONLY";
+        throw error;
+    }
+    if (enforceFreshness && mode === "SAFE") {
+        const freshness = withRepoRoot(rootDir, () => computeContextFreshness({ worksetFiles: [] }));
+        const min = Number(config?.riskTolerance?.minFreshnessScoreToWrite ?? 85);
+        const score = Number.isFinite(Number(freshness?.score)) ? Number(freshness.score) : 0;
+        if (score < min) {
+            const error = new Error(`SAFE mode blocks writes when freshness is below ${min}%. Current: ${score}%`);
+            error.code = "FRESHNESS_BLOCKER";
+            error.details = { score, min, signals: freshness?.signals ?? [] };
+            throw error;
+        }
+    }
+}
+
+function appendExecutionEvidence({ rootDir, toolName, mode, taskId, ok, evidence, meta }) {
+    const summaryOfChange = String(evidence?.summaryOfChange ?? evidence?.summary ?? "").trim() || `${toolName} executed`;
+    const filesModified = Array.isArray(evidence?.filesModified)
+        ? evidence.filesModified.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 80)
+        : [];
+    const keyReasoning = String(evidence?.keyReasoning ?? "").trim();
+    const verification = String(evidence?.verification ?? "").trim();
+    const risks = Array.isArray(evidence?.risks) ? evidence.risks.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 40) : [];
+    const nextActions = Array.isArray(evidence?.nextActions) ? evidence.nextActions.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 40) : [];
+    appendLoopEvent({
+        type: "execution_evidence",
+        tool: toolName,
+        mode,
+        taskId: taskId ? String(taskId).trim().toUpperCase() : null,
+        ok: Boolean(ok),
+        summaryOfChange,
+        filesModified,
+        keyReasoning: keyReasoning || null,
+        verification: verification || null,
+        risks,
+        nextActions,
+        meta: isPlainObject(meta) ? meta : null,
+    }, rootDir);
+}
+
+async function runGovernedWrite({ rootDir, toolName, input, requireTestsConfirmed = false, allowInReview = false, enforceFreshness = true, run }) {
+    const mode = normalizeRuntimeMode(input.runtimeMode ?? input.mode);
+    if (!mode) {
+        const error = new Error("runtimeMode is required");
+        error.code = "MISSING_MODE";
+        throw error;
+    }
+    const evidence = requireEvidenceStub(input.evidence);
+    const taskId = input.taskId;
+    const token = input.token;
+    if (mode === "REVIEW" && !allowInReview) {
+        const error = new Error("Write is not allowed in REVIEW mode.");
+        error.code = "MODE_READ_ONLY";
+        throw error;
+    }
+    enforceModeWritePolicy({ mode, rootDir, enforceFreshness });
+    requireWriteGate({ rootDir, taskId, token, requireTestsConfirmed });
+
+    try {
+        const result = await run({ mode, evidence, taskId, token });
+        appendExecutionEvidence({ rootDir, toolName, mode, taskId, ok: true, evidence, meta: isPlainObject(result) ? result : null });
+        return result;
+    } catch (error) {
+        appendExecutionEvidence({
+            rootDir,
+            toolName,
+            mode,
+            taskId,
+            ok: false,
+            evidence,
+            meta: isPlainObject(error) ? { message: error.message, code: error.code } : { message: String(error) },
+        });
+        throw error;
+    }
 }
 
 function loadFileSummariesIndex(rootDir) {
@@ -744,6 +876,10 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 });
                 const loop = listRecentLoopEvents({ limit: 80, maxBytes: 1_000_000 }, rootDir);
                 const virtual = createVirtualTask({ goal, deep, repoRoot: rootDir });
+                const runtimeMode = resolveRuntimeMode({ repoRoot: rootDir });
+                const modeConfig = getRuntimeModeConfig(runtimeMode);
+                const shc = readShcV1Status({ repoRoot: rootDir });
+                const freshness = withRepoRoot(rootDir, () => computeContextFreshness({ worksetFiles: virtual.relatedFiles }));
                 const contract = buildRuntimeContract({
                     repoRoot: rootDir,
                     task: virtual.task,
@@ -757,7 +893,8 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                     prompt: virtual.prompt,
                     lessons,
                     loop,
-                    runtime: { writeEnabled: Boolean(enableWrite) },
+                    runtime: { writeEnabled: Boolean(enableWrite), mode: runtimeMode, modeConfig, shc, freshness },
+                    rdl: { mode: runtimeMode, shc, freshness },
                     nextActions: scan.status === "fresh" ? [] : ["repo-context-kit scan"],
                     executionState: { sessionId: null, pauseId: null, phase: "planning", status: "planned" },
                 });
@@ -820,6 +957,10 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                         });
                         const loop = listRecentLoopEvents({ limit: 80, maxBytes: 1_000_000 }, rootDir);
                         const virtual = createVirtualTask({ goal, deep, repoRoot: rootDir });
+                        const runtimeMode = resolveRuntimeMode({ repoRoot: rootDir });
+                        const modeConfig = getRuntimeModeConfig(runtimeMode);
+                        const shc = readShcV1Status({ repoRoot: rootDir });
+                        const freshness = withRepoRoot(rootDir, () => computeContextFreshness({ worksetFiles: virtual.relatedFiles }));
                         return buildRuntimeContract({
                             repoRoot: rootDir,
                             task: virtual.task,
@@ -833,7 +974,8 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                             prompt: virtual.prompt,
                             lessons,
                             loop,
-                            runtime: { writeEnabled: Boolean(enableWrite) },
+                            runtime: { writeEnabled: Boolean(enableWrite), mode: runtimeMode, modeConfig, shc, freshness },
+                            rdl: { mode: runtimeMode, shc, freshness },
                             nextActions: [],
                             executionState: { sessionId: null, pauseId: null, phase: "planning", status: "planned" },
                         });
@@ -888,6 +1030,10 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                     return Array.isArray(result?.value?.lessons) ? result.value.lessons : [];
                 });
                 const loop = listRecentLoopEvents({ limit: 80, maxBytes: 1_000_000 }, rootDir);
+                const runtimeMode = resolveRuntimeMode({ repoRoot: rootDir });
+                const modeConfig = getRuntimeModeConfig(runtimeMode);
+                const shc = readShcV1Status({ repoRoot: rootDir });
+                const freshness = withRepoRoot(rootDir, () => computeContextFreshness({ worksetFiles: [] }));
                 const contract = buildRuntimeContract({
                     repoRoot: rootDir,
                     task: match?.taskId ? { id: match.taskId, title: "-" } : null,
@@ -896,7 +1042,8 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                     prompt: "",
                     lessons,
                     loop,
-                    runtime: { writeEnabled: Boolean(enableWrite) },
+                    runtime: { writeEnabled: Boolean(enableWrite), mode: runtimeMode, modeConfig, shc, freshness },
+                    rdl: { mode: runtimeMode, shc, freshness },
                     nextActions: [],
                     executionState: { sessionId, pauseId: match?.pauseId ?? null, phase: null, status: match?.status ?? null },
                 });
@@ -1058,32 +1205,43 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 {
                     type: "object",
                     additionalProperties: false,
-                    required: ["plan", "confirm"],
+                    required: ["plan", "confirm", "runtimeMode", "taskId", "token", "evidence"],
                     properties: {
                         plan: { type: "object" },
                         confirm: { type: "string" },
+                        runtimeMode: { type: "string", enum: ["SAFE", "STANDARD", "REVIEW", "EXPERIMENTAL"] },
+                        taskId: { type: "string" },
+                        token: { type: "string" },
+                        evidence: { type: "object", additionalProperties: true },
                     },
                 },
                 async (args) => {
                     const input = normalizeArgs(args);
-                    const plan = input.plan;
-                    const confirm = input.confirm;
-                    if (!plan || typeof plan !== "object") {
-                        throw new Error("plan is required");
-                    }
-                    if (!isNonEmptyString(confirm)) {
-                        throw new Error("confirm is required");
-                    }
-                    const applied = applyBootstrapPlan({ repoRoot: rootDir, planSource: plan, enableWrite: true, confirm });
-                    return asTextResult(
-                        serializeJson({
-                            ok: true,
-                            repoRoot: applied.repoRoot,
-                            snapshotId: applied.snapshotId,
-                            summary: applied.summary,
-                            applyReport: applied.applyReport,
-                        }),
-                    );
+                    const result = await runGovernedWrite({
+                        rootDir,
+                        toolName: "rck.bootstrap.apply",
+                        input,
+                        requireTestsConfirmed: false,
+                        run: async () => {
+                            const plan = input.plan;
+                            const confirm = input.confirm;
+                            if (!plan || typeof plan !== "object") {
+                                throw new Error("plan is required");
+                            }
+                            if (!isNonEmptyString(confirm)) {
+                                throw new Error("confirm is required");
+                            }
+                            const applied = applyBootstrapPlan({ repoRoot: rootDir, planSource: plan, enableWrite: true, confirm });
+                            return {
+                                ok: true,
+                                repoRoot: applied.repoRoot,
+                                snapshotId: applied.snapshotId,
+                                summary: applied.summary,
+                                applyReport: applied.applyReport,
+                            };
+                        },
+                    });
+                    return asTextResult(serializeJson(result));
                 },
             ),
             tool(
@@ -1092,26 +1250,40 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 {
                     type: "object",
                     additionalProperties: false,
+                    required: ["runtimeMode", "taskId", "token", "evidence"],
                     properties: {
                         dryRun: { type: "boolean" },
                         force: { type: "boolean" },
+                        runtimeMode: { type: "string", enum: ["SAFE", "STANDARD", "REVIEW", "EXPERIMENTAL"] },
+                        taskId: { type: "string" },
+                        token: { type: "string" },
+                        evidence: { type: "object", additionalProperties: true },
                     },
                 },
                 async (args) => {
                     const input = normalizeArgs(args);
-                    const dryRun = pickBoolean(input.dryRun, false);
-                    const force = pickBoolean(input.force, false);
+                    const output = await runGovernedWrite({
+                        rootDir,
+                        toolName: "rck.init",
+                        input,
+                        requireTestsConfirmed: false,
+                        run: async () => {
+                            const dryRun = pickBoolean(input.dryRun, false);
+                            const force = pickBoolean(input.force, false);
 
-                    const cliArgs = ["init"];
-                    if (dryRun) {
-                        cliArgs.push("--dry-run");
-                    }
-                    if (force) {
-                        cliArgs.push("--force");
-                    }
+                            const cliArgs = ["init"];
+                            if (dryRun) {
+                                cliArgs.push("--dry-run");
+                            }
+                            if (force) {
+                                cliArgs.push("--force");
+                            }
 
-                    const result = await spawnCli({ rootDir, args: cliArgs });
-                    return asTextResult(result.stdout || result.stderr);
+                            const result = await spawnCli({ rootDir, args: cliArgs });
+                            return { stdout: result.stdout || "", stderr: result.stderr || "" };
+                        },
+                    });
+                    return asTextResult(output.stdout || output.stderr);
                 },
             ),
             tool(
@@ -1120,7 +1292,12 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 {
                     type: "object",
                     additionalProperties: false,
+                    required: ["runtimeMode", "taskId", "token", "evidence"],
                     properties: {
+                        runtimeMode: { type: "string", enum: ["SAFE", "STANDARD", "REVIEW", "EXPERIMENTAL"] },
+                        taskId: { type: "string" },
+                        token: { type: "string" },
+                        evidence: { type: "object", additionalProperties: true },
                         mode: {
                             type: "string",
                             enum: ["normal", "auto"],
@@ -1129,15 +1306,22 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 },
                 async (args) => {
                     const input = normalizeArgs(args);
-                    const mode = pickEnum(input.mode, ["normal", "auto"], "normal");
-
-                    const cliArgs = ["scan"];
-                    if (mode === "auto") {
-                        cliArgs.push("--auto");
-                    }
-
-                    const result = await spawnCli({ rootDir, args: cliArgs });
-                    return asTextResult(result.stdout || result.stderr);
+                    const output = await runGovernedWrite({
+                        rootDir,
+                        toolName: "rck.scan",
+                        input,
+                        requireTestsConfirmed: false,
+                        run: async () => {
+                            const scanMode = pickEnum(input.mode, ["normal", "auto"], "normal");
+                            const cliArgs = ["scan"];
+                            if (scanMode === "auto") {
+                                cliArgs.push("--auto");
+                            }
+                            const result = await spawnCli({ rootDir, args: cliArgs });
+                            return { stdout: result.stdout || "", stderr: result.stderr || "", scanMode };
+                        },
+                    });
+                    return asTextResult(output.stdout || output.stderr);
                 },
             ),
             tool(
@@ -1146,10 +1330,14 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 {
                     type: "object",
                     additionalProperties: false,
-                    required: ["title"],
+                    required: ["title", "runtimeMode", "taskId", "token", "evidence"],
                     properties: {
                         title: { type: "string" },
                         dryRun: { type: "boolean" },
+                        runtimeMode: { type: "string", enum: ["SAFE", "STANDARD", "REVIEW", "EXPERIMENTAL"] },
+                        taskId: { type: "string" },
+                        token: { type: "string" },
+                        evidence: { type: "object", additionalProperties: true },
                     },
                 },
                 async (args) => {
@@ -1158,15 +1346,22 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                     if (!isNonEmptyString(title)) {
                         throw new Error("title is required");
                     }
-                    const dryRun = pickBoolean(input.dryRun, false);
-
-                    const cliArgs = ["task", "new", title];
-                    if (dryRun) {
-                        cliArgs.push("--dry-run");
-                    }
-
-                    const result = await spawnCli({ rootDir, args: cliArgs });
-                    return asTextResult(result.stdout || result.stderr);
+                    const output = await runGovernedWrite({
+                        rootDir,
+                        toolName: "rck.task.new",
+                        input,
+                        requireTestsConfirmed: false,
+                        run: async () => {
+                            const dryRun = pickBoolean(input.dryRun, false);
+                            const cliArgs = ["task", "new", title];
+                            if (dryRun) {
+                                cliArgs.push("--dry-run");
+                            }
+                            const result = await spawnCli({ rootDir, args: cliArgs });
+                            return { stdout: result.stdout || "", stderr: result.stderr || "" };
+                        },
+                    });
+                    return asTextResult(output.stdout || output.stderr);
                 },
             ),
             tool(
@@ -1175,10 +1370,13 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 {
                     type: "object",
                     additionalProperties: false,
-                    required: ["taskId"],
+                    required: ["taskId", "runtimeMode", "token", "evidence"],
                     properties: {
                         taskId: { type: "string" },
                         dryRun: { type: "boolean" },
+                        runtimeMode: { type: "string", enum: ["SAFE", "STANDARD", "REVIEW", "EXPERIMENTAL"] },
+                        token: { type: "string" },
+                        evidence: { type: "object", additionalProperties: true },
                     },
                 },
                 async (args) => {
@@ -1187,15 +1385,22 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                     if (!isNonEmptyString(taskId)) {
                         throw new Error("taskId is required");
                     }
-                    const dryRun = pickBoolean(input.dryRun, false);
-
-                    const cliArgs = ["task", "cleanup", taskId];
-                    if (dryRun) {
-                        cliArgs.push("--dry-run");
-                    }
-
-                    const result = await spawnCli({ rootDir, args: cliArgs });
-                    return asTextResult(result.stdout || result.stderr);
+                    const output = await runGovernedWrite({
+                        rootDir,
+                        toolName: "rck.task.cleanup",
+                        input: { ...input, taskId },
+                        requireTestsConfirmed: false,
+                        run: async () => {
+                            const dryRun = pickBoolean(input.dryRun, false);
+                            const cliArgs = ["task", "cleanup", taskId];
+                            if (dryRun) {
+                                cliArgs.push("--dry-run");
+                            }
+                            const result = await spawnCli({ rootDir, args: cliArgs });
+                            return { stdout: result.stdout || "", stderr: result.stderr || "" };
+                        },
+                    });
+                    return asTextResult(output.stdout || output.stderr);
                 },
             ),
             tool(
@@ -1252,10 +1457,14 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 {
                     type: "object",
                     additionalProperties: false,
-                    required: ["goal"],
+                    required: ["goal", "runtimeMode", "taskId", "token", "evidence"],
                     properties: {
                         goal: { type: "string" },
                         deep: { type: "boolean" },
+                        runtimeMode: { type: "string", enum: ["SAFE", "STANDARD", "REVIEW", "EXPERIMENTAL"] },
+                        taskId: { type: "string" },
+                        token: { type: "string" },
+                        evidence: { type: "object", additionalProperties: true },
                     },
                 },
                 async (args) => {
@@ -1264,25 +1473,34 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                     if (!isNonEmptyString(goal)) {
                         throw new Error("goal is required");
                     }
-                    const deep = pickBoolean(input.deep, false);
-                    const result = await orchestrateAuto({
+                    const output = await runGovernedWrite({
                         rootDir,
-                        goal,
-                        deep,
-                        dryRun: false,
-                        allowWrite: true,
+                        toolName: "rck.auto.start",
+                        input,
+                        requireTestsConfirmed: false,
+                        run: async () => {
+                            const deep = pickBoolean(input.deep, false);
+                            const result = await orchestrateAuto({
+                                rootDir,
+                                goal,
+                                deep,
+                                dryRun: false,
+                                allowWrite: true,
+                            });
+                            const contract = result.contract ?? null;
+                            if (contract) {
+                                const validation = validateRuntimeContract(contract);
+                                if (!validation.valid) {
+                                    const error = new Error(`Invalid runtime contract: ${validation.errors.join("; ")}`);
+                                    error.code = "INVALID_CONTRACT";
+                                    throw error;
+                                }
+                                return { ok: true, contractText: serializeRuntimeContract(contract) };
+                            }
+                            return { ok: false, contractText: serializeJson(result) };
+                        },
                     });
-                    const contract = result.contract ?? null;
-                    if (contract) {
-                        const validation = validateRuntimeContract(contract);
-                        if (!validation.valid) {
-                            const error = new Error(`Invalid runtime contract: ${validation.errors.join("; ")}`);
-                            error.code = "INVALID_CONTRACT";
-                            throw error;
-                        }
-                        return asTextResult(serializeRuntimeContract(contract));
-                    }
-                    return asTextResult(serializeJson(result));
+                    return asTextResult(output.contractText);
                 },
             ),
         );
@@ -1296,10 +1514,12 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                 {
                     type: "object",
                     additionalProperties: false,
-                    required: ["taskId", "token"],
+                    required: ["taskId", "token", "runtimeMode", "evidence"],
                     properties: {
                         taskId: { type: "string" },
                         token: { type: "string" },
+                        runtimeMode: { type: "string", enum: ["SAFE", "STANDARD", "REVIEW", "EXPERIMENTAL"] },
+                        evidence: { type: "object", additionalProperties: true },
                     },
                 },
                 async (args) => {
@@ -1312,12 +1532,21 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests }) {
                     if (!isValidToken(token)) {
                         throw new Error("token must be a 32-character hex string");
                     }
-
-                    const result = await spawnCli({
+                    const output = await runGovernedWrite({
                         rootDir,
-                        args: ["gate", "run-test", taskId, "--token", token],
+                        toolName: "rck.gate.runTest",
+                        input: { ...input, taskId, token },
+                        requireTestsConfirmed: true,
+                        enforceFreshness: false,
+                        run: async () => {
+                            const result = await spawnCli({
+                                rootDir,
+                                args: ["gate", "run-test", taskId, "--token", token],
+                            });
+                            return { stdout: result.stdout || "", stderr: result.stderr || "" };
+                        },
                     });
-                    return asTextResult(result.stdout || result.stderr);
+                    return asTextResult(output.stdout || output.stderr);
                 },
             ),
         );

@@ -34,6 +34,7 @@ import { getRepoRoot } from "../runtime/root-context.js";
 import {
     detectPackageMetadata,
     detectTechStack,
+    getLockfileFingerprints,
     getPackageJsonDigest,
 } from "./package-utils.js";
 import { buildTaskMap, updateProjectIndex } from "./indexers/project-index.js";
@@ -44,6 +45,12 @@ import {
 } from "./system-overview.js";
 import { getTaskConsistencyWarnings } from "./task-files.js";
 import { getProjectMdUpdate, updateProjectMd } from "./writers/project-md.js";
+
+function isPlainObject(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const proto = Object.getPrototypeOf(value);
+    return proto === Object.prototype || proto === null;
+}
 
 function formatDescriptiveList(items) {
     return items.map((item) =>
@@ -486,6 +493,259 @@ function detectFileListDiff() {
         added,
         removed,
         changed: added.length > 0 || removed.length > 0,
+    };
+}
+
+function normalizeRelPath(value) {
+    const text = String(value ?? "").trim();
+    if (!text) return null;
+    return text.replaceAll("\\", "/");
+}
+
+function computeWorksetMissingFiles(worksetFiles, { limit = 200 } = {}) {
+    const root = getRepoRoot();
+    const files = Array.isArray(worksetFiles) ? worksetFiles : [];
+    const missing = [];
+    for (const filePathRaw of files.slice(0, limit)) {
+        const filePath = normalizeRelPath(filePathRaw);
+        if (!filePath) continue;
+        const fullPath = path.resolve(root, filePath);
+        if (!fs.existsSync(fullPath)) {
+            missing.push(filePath);
+        }
+    }
+    return missing.sort((a, b) => a.localeCompare(b));
+}
+
+function computeEntrypointDrift({ baselineMs }) {
+    if (!exists(CONTEXT_INDEX_ENTRYPOINTS_PATH) || baselineMs == null) {
+        return { changed: false, changedEntrypoints: [] };
+    }
+    const entrypoints = readJson(CONTEXT_INDEX_ENTRYPOINTS_PATH);
+    const list = Array.isArray(entrypoints) ? entrypoints : [];
+    const changed = [];
+    for (const item of list.slice(0, 80)) {
+        const rel = normalizeRelPath(item?.path ?? item?.file ?? "");
+        if (!rel) continue;
+        const stat = statSafe(rel);
+        if (stat && stat.mtimeMs > baselineMs) {
+            changed.push(rel);
+        }
+    }
+    return { changed: changed.length > 0, changedEntrypoints: changed.slice(0, 16) };
+}
+
+function computeSymbolsDrift({ baselineMs, fileDiff }) {
+    if (baselineMs == null) {
+        return { drifted: true, modifiedCodeFiles: [], scanned: 0, truncated: false };
+    }
+    const codeExts = new Set([".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".py", ".go", ".rs", ".java", ".cs"]);
+    const files = listProjectFiles();
+    const limit = 5000;
+    let scanned = 0;
+    let truncated = false;
+    const modified = [];
+    for (const rel of files) {
+        scanned += 1;
+        if (scanned > limit) {
+            truncated = true;
+            break;
+        }
+        const ext = path.extname(rel).toLowerCase();
+        if (!codeExts.has(ext)) continue;
+        const stat = statSafe(rel);
+        if (stat && stat.mtimeMs > baselineMs) {
+            modified.push(rel);
+            if (modified.length >= 24) break;
+        }
+    }
+    const drifted = Boolean(fileDiff?.changed) || modified.length > 0 || truncated;
+    return { drifted, modifiedCodeFiles: modified.slice(0, 16), scanned, truncated };
+}
+
+function computeFileGroupsDrift(fileDiff) {
+    const added = Array.isArray(fileDiff?.added) ? fileDiff.added : [];
+    const removed = Array.isArray(fileDiff?.removed) ? fileDiff.removed : [];
+    const topDirs = new Set();
+    for (const filePath of [...added, ...removed].slice(0, 400)) {
+        const rel = normalizeRelPath(filePath);
+        if (!rel) continue;
+        const top = rel.split("/")[0] || "";
+        if (top) topDirs.add(top);
+    }
+    const dirs = [...topDirs].sort((a, b) => a.localeCompare(b));
+    return { drifted: Boolean(fileDiff?.changed) && dirs.length > 0, topDirs: dirs.slice(0, 16) };
+}
+
+function pickActiveLockfileFingerprint(fingerprints) {
+    const fp = isPlainObject(fingerprints) ? fingerprints : {};
+    return fp.packageLock ?? fp.pnpmLock ?? fp.yarnLock ?? null;
+}
+
+function fingerprintKeyForBaseline(baseline) {
+    const p = String(baseline?.path ?? "").trim();
+    if (p === "package-lock.json") return "packageLock";
+    if (p === "pnpm-lock.yaml") return "pnpmLock";
+    if (p === "yarn.lock") return "yarnLock";
+    return null;
+}
+
+function computeLockfileChanged({ baselineMs, baselineSummary }) {
+    const current = pickActiveLockfileFingerprint(getLockfileFingerprints());
+    const baselineFp = pickActiveLockfileFingerprint(baselineSummary?.lockfileFingerprints);
+    if (!current && !baselineFp) {
+        return { changed: false, baseline: null, current: null };
+    }
+    if (current && baselineFp) {
+        const changed =
+            String(current.sha256 ?? "") !== String(baselineFp.sha256 ?? "") ||
+            Number(current.bytes ?? 0) !== Number(baselineFp.bytes ?? 0) ||
+            Boolean(current.truncated) !== Boolean(baselineFp.truncated) ||
+            String(current.path ?? "") !== String(baselineFp.path ?? "");
+        return { changed, baseline: baselineFp, current };
+    }
+    const filePath = current?.path ?? baselineFp?.path ?? null;
+    const stat = filePath ? statSafe(filePath) : null;
+    const changed = baselineMs != null && stat && stat.mtimeMs > baselineMs;
+    return { changed, baseline: baselineFp, current };
+}
+
+export function computeContextFreshness(options = {}) {
+    const worksetFiles = Array.isArray(options.worksetFiles) ? options.worksetFiles : [];
+    const baseline = statSafe(CONTEXT_INDEX_SUMMARY_PATH);
+    const baselineMs = baseline ? baseline.mtimeMs : null;
+    const baselineSummary = readJson(CONTEXT_INDEX_SUMMARY_PATH);
+    const baselinePackageDigest =
+        typeof baselineSummary?.packageJsonDigest === "string"
+            ? baselineSummary.packageJsonDigest
+            : null;
+    const currentPackageDigest = getPackageJsonDigest();
+    const packageStat = statSafe("package.json");
+    const packageJsonChanged =
+        baselinePackageDigest != null && currentPackageDigest != null
+            ? currentPackageDigest !== baselinePackageDigest
+            : baselineMs != null && packageStat && packageStat.mtimeMs > baselineMs;
+
+    const lockfile = computeLockfileChanged({ baselineMs, baselineSummary });
+
+    const taskWarnings = getTaskConsistencyWarnings();
+    const taskChanged = baselineMs != null && hasTaskMetadataNewerThan(baselineMs);
+    const fileDiff = exists(CONTEXT_INDEX_FILES_PATH) ? detectFileListDiff() : { changed: true, added: [], removed: [] };
+    const latestProjectMs = getLatestProjectMtimeMs();
+    const scanStale =
+        baselineMs == null ||
+        (latestProjectMs != null && latestProjectMs > baselineMs) ||
+        fileDiff.changed ||
+        PLAN_OUTPUTS.some((filePath) => !exists(filePath));
+
+    const entrypoints = computeEntrypointDrift({ baselineMs });
+    const symbols = computeSymbolsDrift({ baselineMs, fileDiff });
+    const fileGroups = computeFileGroupsDrift(fileDiff);
+    const missingWorksetFiles = computeWorksetMissingFiles(worksetFiles);
+    const snapshotsPath = path.resolve(getRepoRoot(), ".aidw/runtime/snapshots/snapshots.jsonl");
+    const snapshotsStat = fs.existsSync(snapshotsPath) ? fs.statSync(snapshotsPath) : null;
+    const snapshotsMissing = !snapshotsStat || !snapshotsStat.isFile() || snapshotsStat.size === 0;
+
+    const scaffoldPlanPath = path.resolve(getRepoRoot(), ".aidw/bootstrap/plan.json");
+    const scaffoldPlanOutdated = fs.existsSync(scaffoldPlanPath) ? (() => {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(scaffoldPlanPath, "utf-8"));
+            return !isPlainObject(parsed);
+        } catch {
+            return true;
+        }
+    })() : false;
+
+    const signals = [
+        {
+            id: "package_json_changed",
+            triggered: packageJsonChanged,
+            penalty: 20,
+            evidence: { baselineMs, baselineDigest: baselinePackageDigest, currentDigest: currentPackageDigest },
+            suggestedAction: "Run repo-context-kit scan to refresh indexes after dependency changes.",
+        },
+        {
+            id: "lockfile_changed",
+            triggered: Boolean(lockfile.changed),
+            penalty: 15,
+            evidence: {
+                baseline: lockfile.baseline ? { path: lockfile.baseline.path, sha256: lockfile.baseline.sha256, bytes: lockfile.baseline.bytes } : null,
+                current: lockfile.current ? { path: lockfile.current.path, sha256: lockfile.current.sha256, bytes: lockfile.current.bytes } : null,
+            },
+            suggestedAction: "Run repo-context-kit scan to refresh context after lockfile updates.",
+        },
+        {
+            id: "entrypoints_changed",
+            triggered: Boolean(entrypoints.changed),
+            penalty: 20,
+            evidence: { changedEntrypoints: entrypoints.changedEntrypoints },
+            suggestedAction: "Re-run repo-context-kit scan to re-detect entrypoints and update system overview.",
+        },
+        {
+            id: "symbols_drifted",
+            triggered: Boolean(symbols.drifted),
+            penalty: 15,
+            evidence: { modifiedCodeFiles: symbols.modifiedCodeFiles, scanned: symbols.scanned, truncated: symbols.truncated },
+            suggestedAction: "Re-run repo-context-kit scan to refresh symbols and file summaries.",
+        },
+        {
+            id: "file_groups_drifted",
+            triggered: Boolean(fileGroups.drifted),
+            penalty: 10,
+            evidence: { topDirs: fileGroups.topDirs, added: (fileDiff.added || []).slice(0, 8), removed: (fileDiff.removed || []).slice(0, 8) },
+            suggestedAction: "Re-run repo-context-kit scan to refresh file groups after structure changes.",
+        },
+        {
+            id: "missing_workset_files",
+            triggered: missingWorksetFiles.length > 0,
+            penalty: 15,
+            evidence: { missing: missingWorksetFiles.slice(0, 16), count: missingWorksetFiles.length },
+            suggestedAction: "Refresh the workset selection (or update file paths) before planning changes.",
+        },
+        {
+            id: "tasks_stale",
+            triggered: Boolean(taskChanged) || taskWarnings.length > 0,
+            penalty: 10,
+            evidence: { taskChanged, warnings: taskWarnings.slice(0, 6) },
+            suggestedAction: "Update tasks and re-run repo-context-kit scan so task mappings stay consistent.",
+        },
+        {
+            id: "snapshots_missing",
+            triggered: Boolean(snapshotsMissing),
+            penalty: 10,
+            evidence: { path: ".aidw/runtime/snapshots/snapshots.jsonl", exists: Boolean(snapshotsStat), bytes: snapshotsStat?.size ?? 0 },
+            suggestedAction: "Generate a runtime snapshot after key workflow milestones (or run an auto plan) for auditability.",
+        },
+        {
+            id: "scaffold_plan_outdated",
+            triggered: Boolean(scaffoldPlanOutdated),
+            penalty: 10,
+            evidence: { path: fs.existsSync(scaffoldPlanPath) ? ".aidw/bootstrap/plan.json" : null },
+            suggestedAction: "Re-generate the scaffold plan and re-verify confirmation tokens before apply.",
+        },
+    ];
+
+    let score = 100;
+    for (const signal of signals) {
+        if (signal.triggered) {
+            score -= Number(signal.penalty ?? 0);
+        }
+    }
+    score = Math.max(0, Math.min(100, score));
+
+    const triggered = signals.filter((s) => s.triggered).sort((a, b) => a.id.localeCompare(b.id));
+    const suggestedActions = [...new Set(triggered.map((s) => s.suggestedAction).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+    return {
+        score,
+        scanStale: Boolean(scanStale),
+        signals: triggered.map((s) => ({
+            id: s.id,
+            penalty: s.penalty,
+            evidence: isPlainObject(s.evidence) ? s.evidence : {},
+            suggestedAction: s.suggestedAction,
+        })),
+        suggestedActions,
     };
 }
 

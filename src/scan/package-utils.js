@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import fs from "node:fs";
 import { IMPORTANT_SCRIPT_NAMES } from "./constants.js";
 import { exists, readJson, readText } from "./fs-utils.js";
 import {
@@ -21,6 +22,36 @@ export function getPackageJsonDigest() {
     } catch {
         return null;
     }
+}
+
+function readFileFingerprint(relativePath, maxBytes) {
+    if (!exists(relativePath)) {
+        return null;
+    }
+    try {
+        const buffer = fs.readFileSync(relativePath);
+        const bytes = buffer.byteLength;
+        const truncated = Number.isFinite(maxBytes) && maxBytes > 0 && bytes > maxBytes;
+        const slice = truncated ? buffer.subarray(0, maxBytes) : buffer;
+        const sha256 = createHash("sha256").update(slice).digest("hex");
+        return {
+            path: relativePath,
+            sha256,
+            bytes,
+            truncated,
+            maxBytes: truncated ? maxBytes : null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+export function getLockfileFingerprints({ maxBytes = 2_000_000 } = {}) {
+    return {
+        packageLock: readFileFingerprint("package-lock.json", maxBytes),
+        pnpmLock: readFileFingerprint("pnpm-lock.yaml", maxBytes),
+        yarnLock: readFileFingerprint("yarn.lock", maxBytes),
+    };
 }
 
 export function detectPackageMetadata() {

@@ -104,6 +104,19 @@ export async function runGate(args = []) {
                 taskId: result.state?.active?.taskId ?? null,
                 expiresAt: result.state?.active?.expiresAt ?? null,
             });
+            appendLoopEvent({
+                type: "execution_evidence",
+                tool: "gate.confirm.task",
+                mode: "CLI",
+                taskId: result.state?.active?.taskId ?? null,
+                ok: true,
+                summaryOfChange: "Confirmation gate: task confirmed",
+                filesModified: [".aidw/confirmation-gate.json"],
+                keyReasoning: "Human confirmed task scope and enabled file edits per confirmation protocol.",
+                verification: "task_confirmed",
+                risks: [],
+                nextActions: [`repo-context-kit gate confirm tests ${result.state?.active?.taskId ?? "<taskId>"}`],
+            });
             if (json) {
                 emitJson({
                     ok: true,
@@ -134,6 +147,19 @@ export async function runGate(args = []) {
                 type: "gate_confirm_tests",
                 taskId: result.state?.active?.taskId ?? null,
                 expiresAt: result.state?.active?.expiresAt ?? null,
+            });
+            appendLoopEvent({
+                type: "execution_evidence",
+                tool: "gate.confirm.tests",
+                mode: "CLI",
+                taskId: result.state?.active?.taskId ?? null,
+                ok: true,
+                summaryOfChange: "Confirmation gate: tests confirmed",
+                filesModified: [".aidw/confirmation-gate.json"],
+                keyReasoning: "Human confirmed test execution per confirmation protocol.",
+                verification: "tests_confirmed",
+                risks: [],
+                nextActions: [`repo-context-kit gate run-test ${result.state?.active?.taskId ?? "<taskId>"} --token <token>`],
             });
             if (json) {
                 emitJson({
@@ -183,6 +209,19 @@ export async function runGate(args = []) {
             ok: result.ok,
             exitCode: result.exitCode,
             command: result.command,
+        });
+        appendLoopEvent({
+            type: "execution_evidence",
+            tool: "gate.run-test",
+            mode: "CLI",
+            taskId: String(taskId ?? "").trim().toUpperCase(),
+            ok: result.ok,
+            summaryOfChange: "Task test executed via confirmation gate",
+            filesModified: [],
+            keyReasoning: "Tests were executed only after explicit task+tests confirmation.",
+            verification: result.command ? `command=${result.command} exit=${result.exitCode}` : `exit=${result.exitCode}`,
+            risks: result.ok ? [] : ["recent-test-failure"],
+            nextActions: result.ok ? [] : ["Fix failing tests before proceeding."],
         });
         if (json) {
             emitJson({
