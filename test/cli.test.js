@@ -1909,6 +1909,125 @@ old generated content
         });
     });
 
+    await t.test("bootstrap doctor --check exit policy: warnings pass, errors fail, strict fails warnings, max-risks enforced", async () => {
+        await withTempProject(async () => {
+            writeFile(
+                "package.json",
+                JSON.stringify(
+                    {
+                        name: "doctor-check-warnings",
+                        version: "0.0.0",
+                        type: "module",
+                        devDependencies: { typescript: "5.0.0" },
+                    },
+                    null,
+                    4,
+                ) + "\n",
+            );
+
+            process.exitCode = 0;
+            const warningsCheck = await withCapturedConsole(() =>
+                runCliMain(["bootstrap", "doctor", "--check", "--json"]),
+            );
+            assert.equal(process.exitCode ?? 0, 0);
+            const warningsPayload = JSON.parse(warningsCheck.output.join("\n"));
+            assert.equal(warningsPayload.check.passed, true);
+            assert.equal(warningsPayload.check.strict, false);
+
+            process.exitCode = 0;
+            await withCapturedConsole(() =>
+                runCliMain(["bootstrap", "doctor", "--check", "--strict", "--json"]),
+            );
+            assert.equal(process.exitCode ?? 0, 1);
+
+            writeFile("tsconfig.json", "{}\n");
+            writeFile("next-env.d.ts", "/// <reference types=\"next\" />\n");
+            writeFile("src/app/layout.tsx", "export default function Layout({ children }) { return children; }\n");
+            writeFile("src/app/page.tsx", "export default function Page() { return null; }\n");
+            writeFile(
+                "package.json",
+                JSON.stringify(
+                    {
+                        name: "doctor-check-errors",
+                        version: "0.0.0",
+                        type: "module",
+                        dependencies: { next: "15.0.0", react: "19.0.0", "react-dom": "19.0.0" },
+                    },
+                    null,
+                    4,
+                ) + "\n",
+            );
+            fs.rmSync(path.resolve(process.cwd(), "src/app/layout.tsx"), { force: true });
+
+            process.exitCode = 0;
+            await withCapturedConsole(() =>
+                runCliMain(["bootstrap", "doctor", "--check", "--json"]),
+            );
+            assert.equal(process.exitCode ?? 0, 1);
+
+            writeFile(
+                "package.json",
+                JSON.stringify(
+                    {
+                        name: "doctor-check-max-risks",
+                        version: "0.0.0",
+                        type: "module",
+                        devDependencies: { typescript: "5.0.0", tailwindcss: "4.0.0" },
+                    },
+                    null,
+                    4,
+                ) + "\n",
+            );
+            process.exitCode = 0;
+            await withCapturedConsole(() =>
+                runCliMain(["bootstrap", "doctor", "--check", "--max-risks", "1", "--json"]),
+            );
+            assert.equal(process.exitCode ?? 0, 1);
+        });
+    });
+
+    await t.test("bootstrap doctor detects missing gitignore entries for build artifacts", async () => {
+        await withTempProject(async () => {
+            writeFile("package.json", JSON.stringify({ name: "gitignore-test", version: "0.0.0", type: "module" }, null, 4) + "\n");
+            fs.mkdirSync(path.resolve(process.cwd(), ".next"), { recursive: true });
+            const { output } = await withCapturedConsole(() => runCliMain(["bootstrap", "doctor", "--json"]));
+            const payload = JSON.parse(output.join("\n"));
+            assert.ok(payload.risks.some((r) => r && r.code === "RCK_GIT_MISSING_IGNORE"));
+        });
+    });
+
+    await t.test("bootstrap doctor can detect tracked build artifacts via git index heuristic", async () => {
+        await withTempProject(async () => {
+            writeFile("package.json", JSON.stringify({ name: "git-index-test", version: "0.0.0", type: "module" }, null, 4) + "\n");
+            fs.mkdirSync(path.resolve(process.cwd(), ".next"), { recursive: true });
+            fs.mkdirSync(path.resolve(process.cwd(), ".git"), { recursive: true });
+            fs.writeFileSync(path.resolve(process.cwd(), ".git/index"), Buffer.from("fake-index-.next/entry", "utf-8"));
+            const { output } = await withCapturedConsole(() => runCliMain(["bootstrap", "doctor", "--json"]));
+            const payload = JSON.parse(output.join("\n"));
+            assert.ok(payload.risks.some((r) => r && r.code === "RCK_GIT_BUILD_ARTIFACT_TRACKED"));
+        });
+    });
+
+    await t.test("bootstrap doctor detects react client component risk when hooks used without use client", async () => {
+        await withTempProject(async () => {
+            writeFile(
+                "package.json",
+                JSON.stringify(
+                    { name: "use-client-test", version: "0.0.0", type: "module", dependencies: { next: "15.0.0", react: "19.0.0", "react-dom": "19.0.0" } },
+                    null,
+                    4,
+                ) + "\n",
+            );
+            writeFile("tsconfig.json", "{}\n");
+            writeFile("next-env.d.ts", "/// <reference types=\"next\" />\n");
+            writeFile("src/app/layout.tsx", '"use client";\nexport default function Layout({ children }) { return children; }\n');
+            writeFile("src/app/risky.tsx", 'import { useState } from "react";\nexport default function Risky(){ const [x] = useState(0); return null; }\n');
+            const { output } = await withCapturedConsole(() => runCliMain(["bootstrap", "doctor", "--json"]));
+            const payload = JSON.parse(output.join("\n"));
+            assert.ok(payload.risks.some((r) => r && r.code === "RCK_NEXT_CLIENT_COMPONENT_RISK"));
+        });
+    });
+
     await t.test("bootstrap doctor risk codes are documented", async () => {
         const doc = fs.readFileSync(path.resolve(originalCwd, "docs/doctor.md"), "utf-8");
         assert.match(doc, /RCK_DEP_PEER_MISMATCH/);
@@ -5002,6 +5121,7 @@ Generate AI-ready prompts.
 
             assert.match(text, /# Task Implementation Prompt/);
             assert.match(text, /## Bootstrap Doctor Summary/);
+            assert.match(text, /## Doctor Gate Reminder/);
             assert.match(text, /## Role/);
             assert.match(text, /## Task/);
             assert.match(text, /- id: T-001/);
@@ -5394,6 +5514,7 @@ Generate bounded verification checklists.
 
             assert.match(text, /# Task Test Checklist/);
             assert.match(text, /## Bootstrap Doctor Summary/);
+            assert.match(text, /## Doctor Gate Reminder/);
             assert.match(text, /- id: T-001/);
             assert.match(text, /- title: Add checklist command/);
             assert.match(text, /- priority: high/);
@@ -5661,6 +5782,7 @@ Generate bounded PR description text.
             assert.match(text, /T-001: Add PR command/);
             assert.match(text, /## Linked Task/);
             assert.match(text, /## Bootstrap Doctor Summary/);
+            assert.match(text, /## Doctor Gate Reminder/);
             assert.match(text, /- task: T-001/);
             assert.match(text, /- priority: high/);
             assert.match(text, /- owner: dev/);

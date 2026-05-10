@@ -12,7 +12,7 @@ import { getArgValue, getFlag, pickCommand, stripFlag } from "./_cli-utils.js";
 function usage() {
     console.log(`Usage:
   repo-context-kit bootstrap plan --from-doc <path> [--write-mode create-only|overwrite-managed] [--json] [--explain]
-  repo-context-kit bootstrap doctor [--from-doc <path>] [--json]
+  repo-context-kit bootstrap doctor [--from-doc <path>] [--json] [--check] [--strict] [--max-risks N]
   repo-context-kit bootstrap inspect --from-plan <path|-> [--json]
   repo-context-kit bootstrap explain --from-plan <path|-> [--json]
   repo-context-kit bootstrap diff --from-plan <path|-> [--against disk|snapshot:<id>] [--json]
@@ -28,6 +28,28 @@ function writePlanFile(plan, planPath) {
     if (!filePath) return null;
     fs.writeFileSync(filePath, serializeJson(plan).trimEnd() + "\n", "utf-8");
     return filePath;
+}
+
+function parseMaxRisks(args) {
+    const direct = getArgValue(args, "--max-risks");
+    if (direct) {
+        const n = Number(direct);
+        if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+    }
+    const inline = (Array.isArray(args) ? args : []).find((x) => String(x ?? "").startsWith("--max-risks="));
+    if (inline) {
+        const raw = String(inline).slice("--max-risks=".length);
+        const n = Number(raw);
+        if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+    }
+    return null;
+}
+
+function computeHighestSeverity(risks) {
+    const list = Array.isArray(risks) ? risks : [];
+    if (list.some((r) => r && r.severity === "error")) return "error";
+    if (list.some((r) => r && r.severity === "warning")) return "warning";
+    return "info";
 }
 
 export async function runBootstrap(args = []) {
@@ -116,10 +138,38 @@ export async function runBootstrap(args = []) {
 
     if (subcommand === "doctor") {
         const fromDoc = getArgValue(filteredArgs, "--from-doc");
+        const check = getFlag(filteredArgs, "--check");
+        const strict = getFlag(filteredArgs, "--strict");
+        const maxRisks = parseMaxRisks(filteredArgs);
         const doctor = bootstrapDoctor({ repoRoot: process.cwd(), fromDoc });
+        const risks = doctor?.json?.risks;
+        const riskCount = Array.isArray(risks) ? risks.length : 0;
+        const highestSeverity = computeHighestSeverity(risks);
+        const maxExceeded = maxRisks != null && riskCount > maxRisks;
+        const status = String(doctor?.json?.status ?? "ok");
+        const passed = !maxExceeded && (strict ? status === "ok" : status !== "error");
+
+        if (check) {
+            process.exitCode = passed ? 0 : 1;
+        }
+
         if (json) {
-            console.log(serializeJson(doctor.json));
-            return { output: null, result: doctor.json };
+            const payload = {
+                ...doctor.json,
+                ...(check
+                    ? {
+                          check: {
+                              passed,
+                              strict: Boolean(strict),
+                              maxRisks,
+                              riskCount,
+                              highestSeverity,
+                          },
+                      }
+                    : {}),
+            };
+            console.log(serializeJson(payload));
+            return { output: null, result: payload };
         }
         console.log(doctor.text.trimEnd());
         return { output: doctor.text };

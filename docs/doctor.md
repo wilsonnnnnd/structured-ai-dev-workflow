@@ -7,6 +7,9 @@
 ```bash
 repo-context-kit bootstrap doctor
 repo-context-kit bootstrap doctor --json
+repo-context-kit bootstrap doctor --check
+repo-context-kit bootstrap doctor --check --strict
+repo-context-kit bootstrap doctor --check --max-risks 10
 repo-context-kit bootstrap doctor --from-doc docs/new-project.md
 repo-context-kit bootstrap doctor --from-doc docs/new-project.md --json
 ```
@@ -45,9 +48,43 @@ repo-context-kit bootstrap doctor --from-doc docs/new-project.md --json
 ```
 
 Notes:
-- `status` is derived from the highest severity seen in `risks` (`error` if any blocker risk exists, `warning` if any warning risk exists).
+- `status` is derived from the highest severity seen in `risks` (`error` if any `severity=error` risk exists).
 - `risks` is bounded and must not include `undefined`, circular references, or raw `Error` objects.
 - `suggestedActions` is intended for UI/MCP/agent consumption (tiered into `safe_actions` vs `manual_review_actions`).
+
+## Check Mode (CI / Gate)
+
+`--check` turns the doctor into a deterministic gate:
+
+```bash
+repo-context-kit bootstrap doctor --check
+repo-context-kit bootstrap doctor --check --strict
+repo-context-kit bootstrap doctor --check --max-risks 10
+repo-context-kit bootstrap doctor --check --json
+```
+
+Default policy:
+- `status=error` → exit 1
+- `status=warning|ok` → exit 0
+
+Strict policy:
+- `status=warning|error` → exit 1
+
+Max risks policy:
+- if `riskCount > maxRisks` → exit 1
+
+When combined with `--json`, the output includes a machine-readable `check` object:
+
+```json
+{
+  "schema": "repo-context-kit/bootstrap-doctor/v1",
+  "check": {
+    "passed": true,
+    "strict": false,
+    "maxRisks": 10
+  }
+}
+```
 
 ## Risk Codes (RCK_*)
 
@@ -129,6 +166,25 @@ The doctor risk codes are stable identifiers intended for tests, UI/MCP consumpt
   - Why it matters: Styling pipeline cannot be configured deterministically.
   - Action tier: safe_actions
 
+### Git / Artifacts
+
+- `RCK_GIT_MISSING_IGNORE`
+  - Meaning: A common build artifact directory exists but is not covered by `.gitignore`.
+  - Why it matters: Artifacts may be accidentally committed, adding noise and CI instability.
+  - Action tier: safe_actions
+
+- `RCK_GIT_BUILD_ARTIFACT_TRACKED`
+  - Meaning: A build artifact path appears to be tracked by git (heuristic).
+  - Why it matters: Tracked artifacts increase review noise and can break workflows.
+  - Action tier: manual_review_actions
+
+### React / Client Components
+
+- `RCK_NEXT_CLIENT_COMPONENT_RISK`
+  - Meaning: React hooks or browser APIs detected without a `"use client"` directive (heuristic).
+  - Why it matters: Next.js app router server components cannot use client-only APIs.
+  - Action tier: manual_review_actions
+
 ## Example Output (Trimmed)
 
 ```json
@@ -138,9 +194,10 @@ The doctor risk codes are stable identifiers intended for tests, UI/MCP consumpt
   "risks": [
     {
       "code": "RCK_NEXT_MISSING_LAYOUT",
-      "severity": "blocker",
+      "severity": "error",
       "category": "project-shape",
       "message": "Next.js app router requires a root layout component.",
+      "whyItMatters": "Next.js app router requires a root layout component.",
       "safe_actions": ["Create src/app/layout.tsx"],
       "manual_review_actions": ["If you intended pages router, move routing files under pages/ instead of app/."]
     }
@@ -157,4 +214,3 @@ The doctor risk codes are stable identifiers intended for tests, UI/MCP consumpt
   }
 }
 ```
-

@@ -375,6 +375,14 @@ function renderBootstrapDoctorSummary({ maxRisks = 5, maxActions = 6 } = {}) {
         lines.push("- lockfileChanges: false");
         lines.push("- network: false");
 
+        const manualRequired = topManual.length > 0 || payload.status === "error";
+        lines.push("");
+        lines.push("## Doctor Gate Reminder");
+        lines.push("");
+        lines.push(`- highest_severity: ${payload.status === "error" ? "error" : payload.status === "warning" ? "warning" : "info"}`);
+        lines.push(`- unresolved_risks: ${risks.length}`);
+        lines.push(`- manual_review_required: ${manualRequired ? "true" : "false"}`);
+
         return lines.join("\n").trimEnd();
     } catch (error) {
         const message = error?.message ? String(error.message) : String(error);
@@ -384,6 +392,12 @@ function renderBootstrapDoctorSummary({ maxRisks = 5, maxActions = 6 } = {}) {
             "- status: unavailable",
             `- reason: ${message}`,
             "- boundaries: writes=false installs=false lockfileChanges=false network=false",
+            "",
+            "## Doctor Gate Reminder",
+            "",
+            "- highest_severity: unknown",
+            "- unresolved_risks: 0",
+            "- manual_review_required: true",
         ].join("\n");
     }
 }

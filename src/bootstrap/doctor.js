@@ -1,8 +1,94 @@
+import fs from "node:fs";
+import path from "node:path";
 import { withRepoRoot } from "../runtime/root-context.js";
 import { getPackageJson } from "../scan/package-utils.js";
 import { exists, isDirectory } from "../scan/fs-utils.js";
-import { computeRiskSeveritySummary, sortRisksStable } from "../runtime/risk-utils.js";
 import { planBootstrapRuntime } from "./plan.js";
+
+const DOCTOR_SCHEMA_V1 = "repo-context-kit/bootstrap-doctor/v1";
+const MAX_RISKS = 120;
+const MAX_ACTIONS = 20;
+const MAX_REACT_RISK_FILES = 8;
+const MAX_REACT_SCAN_FILES = 40;
+const MAX_REACT_SCAN_DEPTH = 8;
+const MAX_REACT_FILE_BYTES = 80_000;
+const MAX_GIT_INDEX_BYTES = 5_000_000;
+const ARTIFACT_DIRS = [".next", "dist", "build", "coverage", "node_modules"];
+
+const DOCTOR_RISK_REGISTRY = {
+    RCK_DEP_PEER_MISMATCH: {
+        severity: "warning",
+        whyItMatters: "Peer dependency mismatches can block installs or cause runtime failures.",
+    },
+    RCK_DEP_UNKNOWN_RANGE: {
+        severity: "warning",
+        whyItMatters: "Unparsed version ranges reduce the reliability of compatibility checks.",
+    },
+    RCK_DEP_MISSING_PACKAGE_JSON: {
+        severity: "warning",
+        whyItMatters: "Without package.json, dependency compatibility checks are limited.",
+    },
+    RCK_DEP_MISSING_REACT: {
+        severity: "error",
+        whyItMatters: "Next.js requires React to build and run.",
+    },
+    RCK_DEP_MISSING_REACT_DOM: {
+        severity: "warning",
+        whyItMatters: "React DOM is required for most React/Next.js web runtime scenarios.",
+    },
+    RCK_DEP_MISSING_TAILWIND: {
+        severity: "warning",
+        whyItMatters: "Tailwind configuration signals suggest styling pipeline drift or incomplete toolchain.",
+    },
+    RCK_DEP_MISSING_POSTCSS: {
+        severity: "warning",
+        whyItMatters: "Missing PostCSS tooling can break Tailwind builds.",
+    },
+    RCK_DEP_UNSUPPORTED_COMBO: {
+        severity: "warning",
+        whyItMatters: "Some dependency combinations often require manual adjustments to scaffold configs.",
+    },
+    RCK_DEP_INCOMPLETE_STACK: {
+        severity: "warning",
+        whyItMatters: "Detected config suggests a stack is intended but key pieces are missing.",
+    },
+    RCK_NEXT_MISSING_LAYOUT: {
+        severity: "error",
+        whyItMatters: "Next.js app router requires a root layout component.",
+    },
+    RCK_NEXT_MISSING_NEXT_ENV: {
+        severity: "warning",
+        whyItMatters: "Missing next-env.d.ts can break TypeScript type integration for Next.js.",
+    },
+    RCK_NEXT_UNKNOWN_SHAPE: {
+        severity: "warning",
+        whyItMatters: "Scaffolds and required files differ by router mode; unknown shape increases setup risk.",
+    },
+    RCK_CONFIG_MISSING_SCRIPT: {
+        severity: "warning",
+        whyItMatters: "Missing scripts (dev/build/start) can block common workflows and CI steps.",
+    },
+    RCK_CONFIG_MISSING_TSCONFIG: {
+        severity: "warning",
+        whyItMatters: "Missing tsconfig.json can break builds, tooling, or type generation.",
+    },
+    RCK_TAILWIND_CONFIG_MISSING: {
+        severity: "warning",
+        whyItMatters: "Tailwind dependency without config usually indicates incomplete setup.",
+    },
+    RCK_GIT_MISSING_IGNORE: {
+        severity: "warning",
+        whyItMatters: "Build artifacts or dependencies may be accidentally committed without ignore rules.",
+    },
+    RCK_GIT_BUILD_ARTIFACT_TRACKED: {
+        severity: "error",
+        whyItMatters: "Tracked build artifacts increase noise and can break review/CI workflows.",
+    },
+    RCK_NEXT_CLIENT_COMPONENT_RISK: {
+        severity: "warning",
+        whyItMatters: 'Using React hooks or browser APIs without "use client" can fail at runtime in Next.js app router.',
+    },
+};
 
 function parseMajor(versionSpec) {
     const raw = String(versionSpec ?? "").trim();
@@ -20,10 +106,22 @@ function normalizeDeps(pkg) {
     };
 }
 
+function normalizeDoctorSeverity(code) {
+    const entry = DOCTOR_RISK_REGISTRY[String(code ?? "").trim()];
+    const severity = String(entry?.severity ?? "").trim();
+    if (severity === "error" || severity === "warning" || severity === "info") return severity;
+    return "info";
+}
+
+function normalizeWhyItMatters(code) {
+    const entry = DOCTOR_RISK_REGISTRY[String(code ?? "").trim()];
+    const text = String(entry?.whyItMatters ?? "").trim();
+    return text || "This risk may affect project setup or workflow stability.";
+}
+
 function buildDoctorRisk({
     id,
     code,
-    severity,
     category,
     message,
     evidence,
@@ -41,7 +139,6 @@ function buildDoctorRisk({
     return {
         id,
         code: code ?? null,
-        severity,
         source: "bootstrap.doctor",
         category,
         message,
@@ -50,6 +147,69 @@ function buildDoctorRisk({
         safe_actions: safe,
         manual_review_actions: manual,
     };
+}
+
+function severityWeight(severity) {
+    const s = String(severity ?? "").trim();
+    if (s === "error") return 3;
+    if (s === "warning") return 2;
+    if (s === "info") return 1;
+    return 0;
+}
+
+function sortDoctorRisksStable(risks) {
+    const list = Array.isArray(risks) ? risks.slice() : [];
+    return list.sort((a, b) => {
+        const sa = severityWeight(a?.severity);
+        const sb = severityWeight(b?.severity);
+        if (sb !== sa) return sb - sa;
+        const ca = String(a?.code ?? "").trim();
+        const cb = String(b?.code ?? "").trim();
+        if (ca !== cb) return ca.localeCompare(cb);
+        const ma = String(a?.message ?? "").trim();
+        const mb = String(b?.message ?? "").trim();
+        return ma.localeCompare(mb);
+    });
+}
+
+function computeRiskSummary(risks) {
+    const summary = { error: 0, warning: 0, info: 0 };
+    for (const risk of Array.isArray(risks) ? risks : []) {
+        const s = String(risk?.severity ?? "").trim();
+        if (s === "error") summary.error += 1;
+        else if (s === "warning") summary.warning += 1;
+        else summary.info += 1;
+    }
+    return summary;
+}
+
+function computeDoctorStatusFromRisks(risks) {
+    const summary = computeRiskSummary(risks);
+    if (summary.error > 0) return { status: "error", highest_severity: "error", summary };
+    if (summary.warning > 0) return { status: "warning", highest_severity: "warning", summary };
+    return { status: "ok", highest_severity: summary.info > 0 ? "info" : "info", summary };
+}
+
+function normalizeDoctorRisks(rawRisks) {
+    const list = Array.isArray(rawRisks) ? rawRisks : [];
+    const normalized = list
+        .filter((risk) => risk && typeof risk === "object")
+        .map((risk) => {
+            const code = String(risk.code ?? "").trim() || "RCK_UNSPECIFIED";
+            const severity = normalizeDoctorSeverity(code);
+            const whyItMatters = normalizeWhyItMatters(code);
+            return {
+                code,
+                severity,
+                category: String(risk.category ?? "").trim(),
+                message: String(risk.message ?? "").trim(),
+                whyItMatters,
+                evidence: risk.evidence && typeof risk.evidence === "object" && !Array.isArray(risk.evidence) ? risk.evidence : {},
+                safe_actions: Array.isArray(risk.safe_actions) ? risk.safe_actions : [],
+                manual_review_actions: Array.isArray(risk.manual_review_actions) ? risk.manual_review_actions : [],
+            };
+        });
+    return sortDoctorRisksStable(normalized).slice(0, MAX_RISKS);
 }
 
 function detectNextShape() {
@@ -142,7 +302,6 @@ function buildDependencyCompatibilityRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-missing-package-json",
                 code: "RCK_DEP_MISSING_PACKAGE_JSON",
-                severity: "warning",
                 category: "dependency",
                 message: "package.json was not found. Dependency compatibility checks are limited.",
                 evidence: {},
@@ -165,7 +324,6 @@ function buildDependencyCompatibilityRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-unknown-range",
                 code: "RCK_DEP_UNKNOWN_RANGE",
-                severity: "warning",
                 category: "dependency",
                 message: "Some dependency version ranges could not be parsed. Compatibility checks are conservative.",
                 evidence: { unknownRanges },
@@ -179,7 +337,6 @@ function buildDependencyCompatibilityRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-missing-react",
                 code: "RCK_DEP_MISSING_REACT",
-                severity: "blocker",
                 category: "dependency",
                 message: "Next.js is present but React is missing from dependencies.",
                 evidence: { next: nextSpec },
@@ -193,7 +350,6 @@ function buildDependencyCompatibilityRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-missing-react-dom",
                 code: "RCK_DEP_MISSING_REACT_DOM",
-                severity: "warning",
                 category: "dependency",
                 message: "React is present but react-dom is missing from dependencies.",
                 evidence: { react: reactSpec },
@@ -211,7 +367,6 @@ function buildDependencyCompatibilityRisks(pkg) {
                     buildDoctorRisk({
                         id: "bootstrap-doctor-peer-mismatch-next-react",
                         code: "RCK_DEP_PEER_MISMATCH",
-                        severity: "warning",
                         category: "dependency",
                         message: "Next.js and React major versions look mismatched. Confirm peer dependency compatibility before installing.",
                         evidence: { next: nextSpec, react: reactSpec },
@@ -227,7 +382,6 @@ function buildDependencyCompatibilityRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-missing-tailwind",
                 code: "RCK_DEP_MISSING_TAILWIND",
-                severity: "warning",
                 category: "dependency",
                 message: "Tailwind config signals are present but tailwindcss dependency is missing.",
                 evidence: { hasTailwindConfig },
@@ -243,7 +397,6 @@ function buildDependencyCompatibilityRisks(pkg) {
                 buildDoctorRisk({
                     id: "bootstrap-doctor-tailwind-v4",
                     code: "RCK_DEP_UNSUPPORTED_COMBO",
-                    severity: "warning",
                     category: "dependency",
                     message: "tailwindcss@4 detected. Some scaffold recipes and PostCSS setups may not be compatible without manual adjustments.",
                     evidence: { tailwindcss: tailwindSpec },
@@ -261,7 +414,6 @@ function buildDependencyCompatibilityRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-missing-tailwind-config",
                 code: "RCK_TAILWIND_CONFIG_MISSING",
-                severity: "warning",
                 category: "config",
                 message: "tailwindcss is present but no tailwind config file was found.",
                 evidence: { tailwindcss: tailwindSpec },
@@ -275,7 +427,6 @@ function buildDependencyCompatibilityRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-missing-postcss-tooling",
                 code: "RCK_DEP_MISSING_POSTCSS",
-                severity: "warning",
                 category: "dependency",
                 message: "Tailwind is present but PostCSS tooling dependencies are missing.",
                 evidence: { tailwindcss: tailwindSpec, postcss: postcssSpec ?? null, autoprefixer: autoprefixerSpec ?? null },
@@ -289,7 +440,6 @@ function buildDependencyCompatibilityRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-shadcn-without-tailwind",
                 code: "RCK_DEP_INCOMPLETE_STACK",
-                severity: "warning",
                 category: "dependency",
                 message: "Shadcn UI config (components.json) detected, but Tailwind is not present. Confirm intended styling stack.",
                 evidence: { componentsJson: true },
@@ -315,7 +465,6 @@ function buildNextShapeRisks({ shape, signals }, pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-next-unknown-shape",
                 code: "RCK_NEXT_UNKNOWN_SHAPE",
-                severity: "warning",
                 category: "project-shape",
                 message: "Next.js detected but project shape (app/pages router) could not be determined from files.",
                 evidence: { next: nextSpec, signals },
@@ -334,7 +483,6 @@ function buildNextShapeRisks({ shape, signals }, pkg) {
                 buildDoctorRisk({
                     id: "bootstrap-doctor-next-missing-layout",
                     code: "RCK_NEXT_MISSING_LAYOUT",
-                    severity: "blocker",
                     category: "project-shape",
                     message: "Next.js app router requires a root layout component.",
                     evidence: { next: nextSpec, expected: suggested },
@@ -350,7 +498,6 @@ function buildNextShapeRisks({ shape, signals }, pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-next-missing-next-env",
                 code: "RCK_NEXT_MISSING_NEXT_ENV",
-                severity: "warning",
                 category: "project-shape",
                 message: "TypeScript detected but next-env.d.ts is missing.",
                 evidence: { expected: "next-env.d.ts" },
@@ -386,7 +533,6 @@ function buildScriptRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-missing-scripts",
                 code: "RCK_CONFIG_MISSING_SCRIPT",
-                severity: "warning",
                 category: "config",
                 message: `package.json is missing important Next.js scripts: ${missing.join(", ")}`,
                 evidence: { missing },
@@ -406,7 +552,6 @@ function buildConfigRisks(pkg) {
             buildDoctorRisk({
                 id: "bootstrap-doctor-missing-tsconfig",
                 code: "RCK_CONFIG_MISSING_TSCONFIG",
-                severity: "warning",
                 category: "config",
                 message: "TypeScript dependency is present but tsconfig.json is missing.",
                 evidence: { typescript: typescriptSpec },
@@ -417,38 +562,31 @@ function buildConfigRisks(pkg) {
     return risks;
 }
 
-function computeDoctorStatus(summary) {
-    const blocker = Number(summary?.blocker ?? 0);
-    const warning = Number(summary?.warning ?? 0);
-    if (blocker > 0) return "error";
-    if (warning > 0) return "warning";
-    return "ok";
+function readTextIfExists(fullPath, { maxBytes = null } = {}) {
+    try {
+        if (!fs.existsSync(fullPath)) return null;
+        const buffer = fs.readFileSync(fullPath);
+        if (Number.isFinite(maxBytes) && maxBytes > 0 && buffer.byteLength > maxBytes) {
+            return buffer.subarray(0, maxBytes).toString("utf-8");
+        }
+        return buffer.toString("utf-8");
+    } catch {
+        return null;
+    }
 }
 
 export function buildBootstrapDoctorJsonV1(report) {
-    const risks = Array.isArray(report?.risks)
-        ? report.risks
-              .filter((r) => r && typeof r === "object")
-              .map((risk) => ({
-                  code: String(risk.code ?? "").trim() || "RCK_UNSPECIFIED",
-                  severity: String(risk.severity ?? "").trim(),
-                  category: String(risk.category ?? "").trim(),
-                  message: String(risk.message ?? "").trim(),
-                  evidence: risk.evidence && typeof risk.evidence === "object" && !Array.isArray(risk.evidence) ? risk.evidence : {},
-                  safe_actions: Array.isArray(risk.safe_actions) ? risk.safe_actions : [],
-                  manual_review_actions: Array.isArray(risk.manual_review_actions) ? risk.manual_review_actions : [],
-              }))
-        : [];
+    const risks = normalizeDoctorRisks(report?.risks);
     const suggestedActions = report?.actions && typeof report.actions === "object"
         ? {
-              safe_actions: Array.isArray(report.actions.safe_actions) ? report.actions.safe_actions : [],
-              manual_review_actions: Array.isArray(report.actions.manual_review_actions) ? report.actions.manual_review_actions : [],
+              safe_actions: Array.isArray(report.actions.safe_actions) ? report.actions.safe_actions.slice(0, MAX_ACTIONS) : [],
+              manual_review_actions: Array.isArray(report.actions.manual_review_actions) ? report.actions.manual_review_actions.slice(0, MAX_ACTIONS) : [],
           }
         : { safe_actions: [], manual_review_actions: [] };
-    const summary = report?.riskSummary && typeof report.riskSummary === "object" ? report.riskSummary : {};
+    const statusInfo = computeDoctorStatusFromRisks(risks);
     return {
-        schema: "repo-context-kit/bootstrap-doctor/v1",
-        status: computeDoctorStatus(summary),
+        schema: DOCTOR_SCHEMA_V1,
+        status: statusInfo.status,
         projectShape: report?.projectShape ?? { shape: "unknown", signals: {}, missingRequiredFiles: [] },
         dependencyCompatibility: report?.dependencyCompatibility ?? { detected: {}, risks: [] },
         dryRunPlan: report?.dryRunPlan ?? { enabled: false },
@@ -482,8 +620,21 @@ function collectTieredActions(risks) {
     };
 }
 
+function formatDoctorStatusBlock(json) {
+    const risks = Array.isArray(json?.risks) ? json.risks : [];
+    const { highest_severity } = computeDoctorStatusFromRisks(risks);
+    return [
+        "## Doctor Status",
+        "",
+        `status: ${json?.status ?? "unknown"}`,
+        `risk_count: ${risks.length}`,
+        `highest_severity: ${highest_severity}`,
+    ].join("\n");
+}
+
 function renderDoctorText(report) {
-    const lines = ["Bootstrap Doctor", ""];
+    const json = buildBootstrapDoctorJsonV1(report);
+    const lines = ["Bootstrap Doctor", "", formatDoctorStatusBlock(json), ""];
     lines.push("## Dependency Compatibility", "");
     const det = report.dependencyCompatibility.detected;
     const detectedLineParts = [];
@@ -534,15 +685,15 @@ function renderDoctorText(report) {
     }
     lines.push("");
 
-    const summary = report.riskSummary;
     lines.push("## Risks", "");
-    lines.push(`- blocker: ${summary.blocker}, warning: ${summary.warning}, info: ${summary.info}`);
-    for (const risk of report.risks.slice(0, 20)) {
-        const code = risk.code ? ` (${risk.code})` : "";
-        lines.push(`- [${risk.severity}] ${risk.id}${code}: ${risk.message}`);
+    const normalized = json.risks;
+    const summary = computeRiskSummary(normalized);
+    lines.push(`- error: ${summary.error}, warning: ${summary.warning}, info: ${summary.info}`);
+    for (const risk of normalized.slice(0, 20)) {
+        lines.push(`- [${risk.severity}] ${risk.code}: ${risk.message}`);
     }
-    if (report.risks.length > 20) {
-        lines.push(`- … (${report.risks.length - 20} more)`);
+    if (normalized.length > 20) {
+        lines.push(`- … (${normalized.length - 20} more)`);
     }
     lines.push("");
 
@@ -562,6 +713,233 @@ function renderDoctorText(report) {
     return lines.join("\n").trimEnd();
 }
 
+function parseGitDirPointer(gitFileText) {
+    const raw = String(gitFileText ?? "").trim();
+    const match = /^gitdir:\s*(.+)$/i.exec(raw);
+    if (!match) return null;
+    return String(match[1]).trim();
+}
+
+function resolveGitIndexPath(repoRoot) {
+    const dotGitPath = path.resolve(repoRoot, ".git");
+    try {
+        if (!fs.existsSync(dotGitPath)) return null;
+        const stat = fs.statSync(dotGitPath);
+        if (stat.isDirectory()) {
+            const indexPath = path.resolve(dotGitPath, "index");
+            return fs.existsSync(indexPath) ? indexPath : null;
+        }
+        if (stat.isFile()) {
+            const text = readTextIfExists(dotGitPath, { maxBytes: 4096 });
+            const gitdir = parseGitDirPointer(text);
+            if (!gitdir) return null;
+            const resolved = path.resolve(repoRoot, gitdir);
+            const indexPath = path.resolve(resolved, "index");
+            return fs.existsSync(indexPath) ? indexPath : null;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+function normalizeGitignoreLines(text) {
+    return String(text ?? "")
+        .split(/\r?\n/g)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"));
+}
+
+function isGitignoreCovering(lines, entry) {
+    const raw = String(entry ?? "").trim().replaceAll("\\", "/");
+    const variants = new Set([
+        raw,
+        `/${raw}`,
+        `${raw}/`,
+        `/${raw}/`,
+        `**/${raw}`,
+        `**/${raw}/`,
+    ]);
+    for (const line of lines) {
+        const normalized = String(line).trim().replaceAll("\\", "/");
+        if (variants.has(normalized)) return true;
+    }
+    return false;
+}
+
+function buildGitIgnoreRisks({ repoRoot }) {
+    const gitignorePath = path.resolve(repoRoot, ".gitignore");
+    const gitignoreText = readTextIfExists(gitignorePath, { maxBytes: 200_000 });
+    const gitignoreLines = normalizeGitignoreLines(gitignoreText ?? "");
+
+    const relevant = [];
+    for (const dir of ARTIFACT_DIRS) {
+        const existsOnDisk = exists(dir);
+        if (existsOnDisk) {
+            relevant.push(dir);
+        }
+    }
+
+    if (relevant.length === 0) {
+        return [];
+    }
+
+    const missing = relevant.filter((dir) => !isGitignoreCovering(gitignoreLines, dir));
+    const risks = [];
+    if (missing.length) {
+        risks.push(
+            buildDoctorRisk({
+                id: "bootstrap-doctor-git-missing-ignore",
+                code: "RCK_GIT_MISSING_IGNORE",
+                category: "git",
+                message: "Some build artifact directories exist but are not covered by .gitignore.",
+                evidence: { missing, gitignorePresent: Boolean(gitignoreText) },
+                safe_actions: missing.map((dir) => `Add ${dir}/ to .gitignore`).slice(0, 12),
+            }),
+        );
+    }
+
+    const indexPath = resolveGitIndexPath(repoRoot);
+    if (indexPath) {
+        try {
+            const buffer = fs.readFileSync(indexPath);
+            const slice = buffer.byteLength > MAX_GIT_INDEX_BYTES ? buffer.subarray(0, MAX_GIT_INDEX_BYTES) : buffer;
+            const tracked = [];
+            for (const dir of relevant) {
+                const needle = Buffer.from(`${dir}/`, "utf-8");
+                if (slice.includes(needle)) {
+                    tracked.push(dir);
+                }
+            }
+            if (tracked.length) {
+                risks.push(
+                    buildDoctorRisk({
+                        id: "bootstrap-doctor-git-build-artifact-tracked",
+                        code: "RCK_GIT_BUILD_ARTIFACT_TRACKED",
+                        category: "git",
+                        message: "Some build artifact paths appear to be tracked by git (heuristic).",
+                        evidence: { tracked, gitIndexReadable: true },
+                        manual_review_actions: ["Review tracked files and consider removing artifacts from version control."],
+                    }),
+                );
+            }
+        } catch {
+            return risks;
+        }
+    }
+
+    return risks;
+}
+
+function listFilesBounded(repoRoot, startDir) {
+    const results = [];
+    const queue = [{ dir: startDir, depth: 0 }];
+    while (queue.length && results.length < MAX_REACT_SCAN_FILES) {
+        const next = queue.shift();
+        const depth = next.depth;
+        if (depth > MAX_REACT_SCAN_DEPTH) continue;
+        const abs = path.resolve(repoRoot, next.dir);
+        let entries = [];
+        try {
+            entries = fs.readdirSync(abs, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+        for (const entry of entries) {
+            if (results.length >= MAX_REACT_SCAN_FILES) break;
+            const name = entry.name;
+            if (name === "node_modules" || name === ".git" || name === ".next" || name === "dist" || name === "build" || name === "coverage") {
+                continue;
+            }
+            const rel = path.posix.join(next.dir.replaceAll("\\", "/"), name.replaceAll("\\", "/"));
+            if (entry.isDirectory()) {
+                queue.push({ dir: rel, depth: depth + 1 });
+            } else if (entry.isFile()) {
+                if (!/\.(jsx|tsx|js|ts)$/i.test(name)) continue;
+                results.push(rel);
+            }
+        }
+    }
+    return results.sort((a, b) => a.localeCompare(b));
+}
+
+function hasUseClientDirective(text) {
+    const lines = String(text ?? "").split(/\r?\n/g).slice(0, 40);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (trimmed.startsWith("//")) continue;
+        if (trimmed.startsWith("/*")) continue;
+        if (trimmed === '"use client";' || trimmed === "'use client';" || trimmed === '"use client"' || trimmed === "'use client'") {
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+function detectClientSignals(text) {
+    const signals = [];
+    const hay = String(text ?? "");
+    const hookPatterns = [
+        /\buseState\s*\(/,
+        /\buseEffect\s*\(/,
+        /\buseRef\s*\(/,
+        /\buseReducer\s*\(/,
+    ];
+    const browserPatterns = [
+        /\bwindow\./,
+        /\bdocument\./,
+        /\blocalStorage\b/,
+        /\bsessionStorage\b/,
+        /\bnavigator\./,
+    ];
+    if (hookPatterns.some((re) => re.test(hay))) signals.push("react_hooks");
+    if (browserPatterns.some((re) => re.test(hay))) signals.push("browser_apis");
+    return signals;
+}
+
+function buildReactClientRisks({ repoRoot, nextShape, pkg }) {
+    const deps = normalizeDeps(pkg);
+    const nextSpec = deps.next ?? null;
+    if (!nextSpec) return [];
+    if (!nextShape || (nextShape.shape !== "app-router" && nextShape.shape !== "hybrid")) return [];
+
+    const dirs = [];
+    if (isDirectory("app")) dirs.push("app");
+    if (isDirectory("src/app")) dirs.push("src/app");
+    if (dirs.length === 0) return [];
+
+    const findings = [];
+    for (const dir of dirs) {
+        for (const relPath of listFilesBounded(repoRoot, dir)) {
+            if (findings.length >= MAX_REACT_RISK_FILES) break;
+            const abs = path.resolve(repoRoot, relPath);
+            const text = readTextIfExists(abs, { maxBytes: MAX_REACT_FILE_BYTES });
+            if (!text) continue;
+            const hasDirective = hasUseClientDirective(text);
+            const signals = detectClientSignals(text);
+            if (signals.length === 0) continue;
+            if (hasDirective) continue;
+            findings.push({ path: relPath, signals });
+        }
+        if (findings.length >= MAX_REACT_RISK_FILES) break;
+    }
+
+    if (findings.length === 0) return [];
+
+    return [
+        buildDoctorRisk({
+            id: "bootstrap-doctor-next-client-component-risk",
+            code: "RCK_NEXT_CLIENT_COMPONENT_RISK",
+            category: "project-shape",
+            message: 'Potential client component risk: hooks/browser APIs used without a "use client" directive (heuristic).',
+            evidence: { files: findings },
+            manual_review_actions: ['Review whether the flagged files should include "use client".'],
+        }),
+    ];
+}
+
 export function bootstrapDoctor({ repoRoot, fromDoc = null } = {}) {
     const root = String(repoRoot ?? "").trim() || process.cwd();
     return withRepoRoot(root, () => {
@@ -572,6 +950,8 @@ export function bootstrapDoctor({ repoRoot, fromDoc = null } = {}) {
         const projectShapeRisks = buildNextShapeRisks(nextShape, pkg);
         const scriptRisks = buildScriptRisks(pkg);
         const configRisks = buildConfigRisks(pkg);
+        const gitRisks = buildGitIgnoreRisks({ repoRoot: root });
+        const reactRisks = buildReactClientRisks({ repoRoot: root, nextShape, pkg });
 
         const projectShape = {
             shape: projectShapeRisks.shape,
@@ -594,6 +974,8 @@ export function bootstrapDoctor({ repoRoot, fromDoc = null } = {}) {
             ...projectShapeRisks.risks,
             ...scriptRisks,
             ...configRisks,
+            ...gitRisks,
+            ...reactRisks,
         ];
 
         let dryRunPlan = { enabled: false, note: "No design doc provided." };
@@ -611,8 +993,8 @@ export function bootstrapDoctor({ repoRoot, fromDoc = null } = {}) {
             };
         }
 
-        const orderedRisks = sortRisksStable(risks, { secondaryKey: "code" });
-        const actions = collectTieredActions(orderedRisks);
+        const normalizedRisks = normalizeDoctorRisks(risks);
+        const actions = collectTieredActions(normalizedRisks);
         const report = {
             ok: true,
             command: "bootstrap",
@@ -621,8 +1003,7 @@ export function bootstrapDoctor({ repoRoot, fromDoc = null } = {}) {
             dependencyCompatibility,
             projectShape,
             dryRunPlan,
-            risks: orderedRisks,
-            riskSummary: computeRiskSeveritySummary(orderedRisks),
+            risks: normalizedRisks,
             actions,
         };
 
