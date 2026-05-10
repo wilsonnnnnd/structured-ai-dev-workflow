@@ -35,8 +35,10 @@ repo-context-kit bootstrap doctor --check
 This bundle:
 
 - Does not install dependencies
+- no automatic install
 - Does not write files
 - Does not apply fixes
+- no arbitrary shell
 - Only checks and exits with a status code
 
 ## Layers and Responsibilities
@@ -133,4 +135,3 @@ repo-context-kit does not:
 - Read or write files outside repoRoot
 - Autonomously modify business code
 - Act as an autonomous fixer
-

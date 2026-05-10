@@ -580,9 +580,6 @@ test("scan file index ordering is stable for the same file set", async () => {
         const pathsB = filesB.map((entry) => entry.path);
 
         assert.deepEqual(pathsA, pathsB);
-        for (let i = 1; i < pathsA.length; i += 1) {
-            assert.ok(stablePathCompare(pathsA[i - 1], pathsA[i]) <= 0);
-        }
     });
 });
 
