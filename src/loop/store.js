@@ -1,10 +1,12 @@
 import fs from "fs";
 import path from "path";
+import { CONTEXT_BUDGET } from "../runtime/context-budget.js";
+import { stableStringCompare } from "../runtime/stable-sort.js";
 
 const LOOP_DIR = ".aidw";
 const LOOP_FILE = "context-loop.jsonl";
-const MAX_READ_BYTES = 240_000;
-const MAX_READ_BYTES_LIMIT = 2_000_000;
+const MAX_READ_BYTES = 96_000;
+const MAX_READ_BYTES_LIMIT = 256_000;
 
 function getLoopPath(cwd = process.cwd()) {
     return path.resolve(cwd, LOOP_DIR, LOOP_FILE);
@@ -45,7 +47,8 @@ function readTail(filePath, maxBytes) {
 }
 
 export function listRecentLoopEvents(options = {}, cwd = process.cwd()) {
-    const limit = Number.isFinite(options.limit) ? options.limit : 8;
+    const requestedLimit = Number.isFinite(options.limit) ? options.limit : 8;
+    const limit = Math.max(1, Math.min(CONTEXT_BUDGET.maxLoopEvents, Math.floor(requestedLimit)));
     const taskId = options.taskId ? String(options.taskId).trim().toUpperCase() : null;
     const maxBytesRaw = Number(options.maxBytes);
     const maxBytes = Number.isFinite(maxBytesRaw) && maxBytesRaw > 0
@@ -76,7 +79,9 @@ export function listRecentLoopEvents(options = {}, cwd = process.cwd()) {
         }
     }
 
-    return events;
+    return events
+        .sort((a, b) => stableStringCompare(String(b?.at ?? ""), String(a?.at ?? "")))
+        .slice(0, limit);
 }
 
 export function formatLoopEventsMarkdown(events = []) {

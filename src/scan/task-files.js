@@ -2,8 +2,80 @@ import path from "path";
 import { TASK_REGISTRY_PATH } from "./constants.js";
 import { exists, listDirSafe, readText } from "./fs-utils.js";
 import { parseTaskRegistry } from "./task-registry.js";
+import { extractMarkdownListItems } from "../docs/doc-extractor.js";
 
 export const TASK_DIR = "task";
+
+function clampText(value, maxLength = 240) {
+    const text = String(value ?? "").trim();
+    if (text.length <= maxLength) {
+        return text;
+    }
+    return `${text.slice(0, Math.max(0, maxLength - 12)).trimEnd()} [truncated]`;
+}
+
+function extractSection(content, heading) {
+    const escaped = String(heading).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`(?:^|\\n)##\\s+${escaped}\\s*\\n(?<body>[\\s\\S]*?)(?=\\n##\\s|$)`, "i");
+    const match = String(content ?? "").match(regex);
+    return match?.groups?.body?.trim() ?? "";
+}
+
+function toUniqueList(items = [], maxItems = 16, maxChars = 220) {
+    const values = extractMarkdownListItems(items, { maxItems: maxItems * 2, maxItemChars: maxChars });
+    const out = [];
+    const seen = new Set();
+    for (const item of values) {
+        const text = clampText(item, maxChars);
+        const key = text.toLowerCase();
+        if (!text || seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        out.push(text);
+        if (out.length >= maxItems) {
+            break;
+        }
+    }
+    return out;
+}
+
+function normalizeCommandBlock(raw) {
+    const text = String(raw ?? "").trim();
+    if (!text) return null;
+    const fenced = text
+        .replace(/^```[a-zA-Z0-9_-]*\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+    const command = fenced
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join(" ; ");
+    return command ? clampText(command, 320) : null;
+}
+
+function buildTaskFacts(content) {
+    const goal = clampText(extractSection(content, "Goal"), 900) || null;
+    const scope = toUniqueList(extractSection(content, "Scope"), 16, 220);
+    const requirements = toUniqueList(extractSection(content, "Requirements"), 16, 220);
+    const acceptanceCriteria = toUniqueList(extractSection(content, "Acceptance Criteria"), 16, 220);
+    const definitionOfDone = toUniqueList(extractSection(content, "Definition of Done"), 16, 220);
+    const hardBoundaries = toUniqueList(extractSection(content, "Hard Boundaries"), 12, 220);
+    const confirmationPoints = toUniqueList(extractSection(content, "Confirmation Points"), 12, 220);
+    const testCommand = normalizeCommandBlock(extractSection(content, "Test Command"));
+
+    return {
+        goal,
+        scope,
+        requirements,
+        acceptanceCriteria,
+        definitionOfDone,
+        hardBoundaries,
+        confirmationPoints,
+        testCommand,
+    };
+}
 
 function readTextSafe(filePath) {
     if (!exists(filePath)) {
@@ -57,6 +129,7 @@ export function parseTaskFile(filePath) {
     const content = readTextSafe(filePath);
     const id = extractTaskId(filePath, content);
     const title = extractTaskTitle(content, id, filePath);
+    const facts = buildTaskFacts(content);
 
     return {
         path: filePath,
@@ -65,6 +138,7 @@ export function parseTaskFile(filePath) {
         hasAcceptanceCriteria: /^##\s+Acceptance Criteria\b/im.test(content),
         hasTestCommand: /^##\s+Test Command\b/im.test(content),
         hasDefinitionOfDone: /^##\s+Definition of Done\b/im.test(content),
+        facts,
     };
 }
 
@@ -86,6 +160,7 @@ export function getMergedTaskMetadata() {
             hasAcceptanceCriteria: Boolean(fileTask?.hasAcceptanceCriteria),
             hasTestCommand: Boolean(fileTask?.hasTestCommand),
             hasDefinitionOfDone: Boolean(fileTask?.hasDefinitionOfDone),
+            facts: fileTask?.facts ?? null,
         };
     });
 
@@ -99,6 +174,7 @@ export function getMergedTaskMetadata() {
                 owner: null,
                 dependencies: null,
                 file: task.path,
+                facts: task.facts,
             }));
 
         return [...registryTasks, ...unregisteredTasks];
@@ -111,6 +187,7 @@ export function getMergedTaskMetadata() {
         owner: null,
         dependencies: null,
         file: task.path,
+        facts: task.facts,
     }));
 }
 

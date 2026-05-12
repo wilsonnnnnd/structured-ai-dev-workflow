@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnCli, isValidToken } from "./spawn-cli.js";
-import { validateGate } from "../gate/state.js";
-import { loadGateState } from "../gate/state.js";
+import { validateGate, loadGateState, confirmTask as confirmTaskGate, confirmTests as confirmTestsGate } from "../gate/state.js";
+import { runTaskTestThroughGate } from "../gate/run-test.js";
 import { validateRuntimeContract } from "../runtime/runtime-schema.js";
-import { budgetJsonPayload, CONTEXT_BUDGET } from "../runtime/context-budget.js";
+import { applyRuntimeBudget, CONTEXT_BUDGET } from "../runtime/context-budget.js";
 import { serializeCompactJson } from "../runtime/serialize.js";
 import { buildRuntimeMetrics } from "../runtime/context-observability.js";
 import { computeScanCheckState } from "../scan/index.js";
@@ -21,7 +21,7 @@ function asTextResult(text) {
 }
 
 function asJsonResult(payload) {
-    return asTextResult(serializeCompactJson(budgetJsonPayload(payload, { maxPayloadBytes: CONTEXT_BUDGET.maxPayloadBytes })));
+    return asTextResult(serializeCompactJson(applyRuntimeBudget(payload)));
 }
 
 export const MCP_CAPABILITY_TIERS = Object.freeze({
@@ -122,7 +122,18 @@ async function runGovernedCli({ rootDir, runCli, input, cliArgs, requireTestsCon
         requireTestsConfirmed,
     });
     const result = await runCli({ rootDir, args: cliArgs });
-    return asTextResult(result.stdout || result.stderr);
+    return asJsonResult({
+        schemaVersion: "runtime/v1",
+        interface: "mcp",
+        execution: {
+            command: cliArgs[0] ?? "unknown",
+            args: cliArgs.slice(1),
+            exitCode: Number(result?.code ?? 1),
+            ok: Number(result?.code ?? 1) === 0,
+            stdoutBytes: Buffer.byteLength(String(result?.stdout ?? ""), "utf8"),
+            stderrBytes: Buffer.byteLength(String(result?.stderr ?? ""), "utf8"),
+        },
+    });
 }
 
 export function buildMcpCapabilityPolicy({ enableWrite, enableTests, enableExternalSideEffects } = {}) {
@@ -211,40 +222,23 @@ function findTask(tasks, taskId) {
     return tasks.find((task) => String(task?.id ?? "").trim().toUpperCase() === id) ?? null;
 }
 
+function getTaskFacts(task) {
+    const facts = task?.facts && typeof task.facts === "object" ? task.facts : {};
+    return {
+        goal: typeof facts.goal === "string" && facts.goal.trim() ? facts.goal : null,
+        scope: limitArray(facts.scope, CONTEXT_BUDGET.maxContextSections),
+        requirements: limitArray(facts.requirements, CONTEXT_BUDGET.maxTaskNotes),
+        acceptanceCriteria: limitArray(facts.acceptanceCriteria, CONTEXT_BUDGET.maxChecklistItems),
+        definitionOfDone: limitArray(facts.definitionOfDone, CONTEXT_BUDGET.maxChecklistItems),
+        hardBoundaries: limitArray(facts.hardBoundaries, CONTEXT_BUDGET.maxContextSections),
+        confirmationPoints: limitArray(facts.confirmationPoints, CONTEXT_BUDGET.maxContextSections),
+        testCommand: typeof facts.testCommand === "string" && facts.testCommand.trim() ? facts.testCommand : null,
+    };
+}
+
 function limitArray(values, max) {
     const list = Array.isArray(values) ? values : [];
     return list.slice(0, max);
-}
-
-function parseSection(content, heading) {
-    const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`(?:^|\\n)##\\s+${escaped}\\s*\\n(?<body>[\\s\\S]*?)(?=\\n##\\s|$)`, "i");
-    const match = String(content ?? "").match(regex);
-    return match?.groups?.body?.trim() ?? "";
-}
-
-function parseSectionList(content, heading) {
-    const section = parseSection(content, heading);
-    if (!section) return [];
-    return section
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith("- "))
-        .map((line) => line.slice(2).trim())
-        .filter(Boolean)
-        .slice(0, 16);
-}
-
-function readTaskDetail(rootDir, taskFile) {
-    const rel = String(taskFile ?? "").trim();
-    if (!rel) return "";
-    const full = path.resolve(rootDir, rel);
-    if (!fs.existsSync(full)) return "";
-    try {
-        return fs.readFileSync(full, "utf-8");
-    } catch {
-        return "";
-    }
 }
 
 function normalizeRepoRelativePath(value) {
@@ -318,11 +312,9 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
             { type: "object", additionalProperties: false, properties: {} },
             async () => {
                 const runtime = loadRuntimeV1(rootDir);
-                const pkg = loadPackageMeta(rootDir);
                 const payload = {
                     schemaVersion: "runtime/v1",
                     interface: "mcp",
-                    repository: pkg,
                     context: {
                         projectType: runtime.context?.payload?.projectType ?? null,
                         techStack: limitArray(runtime.context?.payload?.techStack, 12),
@@ -425,7 +417,7 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                 const runtime = loadRuntimeV1(rootDir);
                 const task = findTask(getRuntimeTasks(runtime.task), input.taskId);
                 if (!task) throw new Error(`taskId not found in runtime state: ${input.taskId}`);
-                const detail = readTaskDetail(rootDir, task.file);
+                const facts = getTaskFacts(task);
                 return asJsonResult({
                     schemaVersion: "runtime/v1",
                     interface: "mcp",
@@ -433,11 +425,13 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                     task: {
                         id: task.id,
                         title: task.title,
-                        goal: parseSection(detail, "Goal") || null,
-                        scope: parseSectionList(detail, "Scope"),
-                        requirements: parseSectionList(detail, "Requirements"),
-                        acceptanceCriteria: parseSectionList(detail, "Acceptance Criteria"),
-                        testCommand: parseSection(detail, "Test Command") || null,
+                        goal: facts.goal,
+                        scope: facts.scope,
+                        requirements: facts.requirements,
+                        acceptanceCriteria: facts.acceptanceCriteria,
+                        hardBoundaries: facts.hardBoundaries,
+                        confirmationPoints: facts.confirmationPoints,
+                        testCommand: facts.testCommand,
                     },
                     context: {
                         riskAreas: limitArray(runtime.context?.payload?.riskAreas, 10),
@@ -461,15 +455,15 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                 const runtime = loadRuntimeV1(rootDir);
                 const task = findTask(getRuntimeTasks(runtime.task), input.taskId);
                 if (!task) throw new Error(`taskId not found in runtime state: ${input.taskId}`);
-                const detail = readTaskDetail(rootDir, task.file);
+                const facts = getTaskFacts(task);
                 return asJsonResult({
                     schemaVersion: "runtime/v1",
                     interface: "mcp",
                     kind: "task-checklist",
                     task: { id: task.id, title: task.title },
                     checklist: {
-                        acceptanceCriteria: parseSectionList(detail, "Acceptance Criteria"),
-                        definitionOfDone: parseSectionList(detail, "Definition of Done"),
+                        acceptanceCriteria: facts.acceptanceCriteria,
+                        definitionOfDone: facts.definitionOfDone,
                         requiredChecks: limitArray(runtime.verification?.payload?.requiredChecks, 8),
                     },
                 });
@@ -490,15 +484,15 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                 const runtime = loadRuntimeV1(rootDir);
                 const task = findTask(getRuntimeTasks(runtime.task), input.taskId);
                 if (!task) throw new Error(`taskId not found in runtime state: ${input.taskId}`);
-                const detail = readTaskDetail(rootDir, task.file);
+                const facts = getTaskFacts(task);
                 return asJsonResult({
                     schemaVersion: "runtime/v1",
                     interface: "mcp",
                     kind: "task-pr-framing",
                     pr: {
                         title: `${task.id} ${task.title}`,
-                        summary: parseSection(detail, "Goal") || null,
-                        scope: parseSectionList(detail, "Scope"),
+                        summary: facts.goal,
+                        scope: facts.scope,
                         verification: {
                             requiredChecks: limitArray(runtime.verification?.payload?.requiredChecks, 8),
                             warnings: limitArray(runtime.verification?.payload?.warnings, 8),
@@ -688,8 +682,21 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                 async (args) => {
                     const input = normalizeArgs(args);
                     if (!isNonEmptyString(input.taskId)) throw new Error("taskId is required");
-                    const result = await runCli({ rootDir, args: ["gate", "confirm", "task", input.taskId, "--json"] });
-                    return asTextResult(result.stdout || result.stderr);
+                    const result = confirmTaskGate(input.taskId, {}, rootDir);
+                    if (result?.error) {
+                        throw new Error(result.error);
+                    }
+                    return asJsonResult({
+                        schemaVersion: "runtime/v1",
+                        interface: "mcp",
+                        gate: {
+                            taskId: result?.state?.active?.taskId ?? null,
+                            token: result?.token ?? null,
+                            expiresAt: result?.state?.active?.expiresAt ?? null,
+                            taskConfirmed: Boolean(result?.state?.active?.taskConfirmed),
+                            testsConfirmed: Boolean(result?.state?.active?.testsConfirmed),
+                        },
+                    });
                 },
                 MCP_CAPABILITY_TIERS.WORKFLOW_WRITE,
             ),
@@ -705,8 +712,20 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                 async (args) => {
                     const input = normalizeArgs(args);
                     if (!isNonEmptyString(input.taskId)) throw new Error("taskId is required");
-                    const result = await runCli({ rootDir, args: ["gate", "confirm", "tests", input.taskId] });
-                    return asTextResult(result.stdout || result.stderr);
+                    const result = confirmTestsGate(input.taskId, rootDir);
+                    if (result?.error) {
+                        throw new Error(result.error);
+                    }
+                    return asJsonResult({
+                        schemaVersion: "runtime/v1",
+                        interface: "mcp",
+                        gate: {
+                            taskId: result?.state?.active?.taskId ?? null,
+                            expiresAt: result?.state?.active?.expiresAt ?? null,
+                            taskConfirmed: Boolean(result?.state?.active?.taskConfirmed),
+                            testsConfirmed: Boolean(result?.state?.active?.testsConfirmed),
+                        },
+                    });
                 },
                 MCP_CAPABILITY_TIERS.WORKFLOW_WRITE,
             ),
@@ -733,12 +752,28 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                     const input = normalizeArgs(args);
                     if (!isNonEmptyString(input.taskId)) throw new Error("taskId is required");
                     if (!isValidToken(input.token)) throw new Error("token must be a 32-character hex string");
-                    return runGovernedCli({
-                        rootDir,
-                        runCli,
-                        input,
-                        cliArgs: ["gate", "run-test", input.taskId, "--token", input.token],
-                        requireTestsConfirmed: true,
+                    const mode = normalizeRuntimeMode(input.runtimeMode ?? input.mode);
+                    if (!mode) {
+                        const error = new Error("runtimeMode is required");
+                        error.code = "MISSING_MODE";
+                        throw error;
+                    }
+                    if (mode === "REVIEW") {
+                        const error = new Error("Write is not allowed in REVIEW mode.");
+                        error.code = "MODE_READ_ONLY";
+                        throw error;
+                    }
+                    requireEvidence(input.evidence);
+                    const result = await runTaskTestThroughGate({ taskId: input.taskId, token: input.token });
+                    return asJsonResult({
+                        schemaVersion: "runtime/v1",
+                        interface: "mcp",
+                        test: {
+                            taskId: input.taskId,
+                            ok: Boolean(result?.ok),
+                            exitCode: Number(result?.exitCode ?? 1),
+                            command: result?.command ?? null,
+                        },
                     });
                 },
                 MCP_CAPABILITY_TIERS.TEST_EXEC,

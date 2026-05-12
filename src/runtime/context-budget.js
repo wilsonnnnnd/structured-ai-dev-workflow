@@ -36,10 +36,13 @@ export const CONTEXT_BUDGET = Object.freeze({
     maxChecklistItems: 16,
     maxTaskNotes: 8,
     maxRisks: 10,
+    maxLoopEvents: 20,
     maxStringLength: 240,
     maxPayloadBytes: 16_384,
+    maxApproxTokenUnits: 4_200,
     maxContextSections: 8,
     maxArraysPerResponse: 12,
+    maxObjectKeysPerSection: 24,
     maxNestedDepth: 6,
     context: Object.freeze({
         brief: Object.freeze({ maxChars: 8000 }),
@@ -78,6 +81,117 @@ export const CONTEXT_BUDGET = Object.freeze({
 
 function normalizeArray(value, maxItems) {
     return Array.isArray(value) ? value.slice(0, maxItems) : [];
+}
+
+function parsePathParts(path) {
+    if (!path) return [];
+    return String(path)
+        .split("/")
+        .map((part) => part.trim())
+        .filter(Boolean);
+}
+
+function isIntegerLike(part) {
+    return /^\d+$/.test(String(part));
+}
+
+function getByPath(root, pathParts) {
+    let current = root;
+    for (const part of pathParts) {
+        if (current == null) return undefined;
+        if (Array.isArray(current)) {
+            if (!isIntegerLike(part)) return undefined;
+            const index = Number(part);
+            current = current[index];
+            continue;
+        }
+        if (!isPlainObject(current)) return undefined;
+        current = current[part];
+    }
+    return current;
+}
+
+function setByPath(root, pathParts, nextValue) {
+    if (!pathParts.length) {
+        return false;
+    }
+    let current = root;
+    for (let i = 0; i < pathParts.length - 1; i += 1) {
+        const part = pathParts[i];
+        if (Array.isArray(current)) {
+            if (!isIntegerLike(part)) return false;
+            const index = Number(part);
+            current = current[index];
+            continue;
+        }
+        if (!isPlainObject(current)) {
+            return false;
+        }
+        current = current[part];
+    }
+
+    const leaf = pathParts[pathParts.length - 1];
+    if (Array.isArray(current)) {
+        if (!isIntegerLike(leaf)) return false;
+        current[Number(leaf)] = nextValue;
+        return true;
+    }
+    if (!isPlainObject(current)) return false;
+    current[leaf] = nextValue;
+    return true;
+}
+
+function makeSchemaPlaceholder(value) {
+    if (Array.isArray(value)) return [];
+    if (isPlainObject(value)) return null;
+    if (typeof value === "string") return "";
+    if (typeof value === "number") return 0;
+    if (typeof value === "boolean") return false;
+    return null;
+}
+
+function buildMinimalShape(value, depth = 0) {
+    if (depth > 24) {
+        return null;
+    }
+    if (value == null) return null;
+    if (typeof value === "string") return "";
+    if (typeof value === "number") return 0;
+    if (typeof value === "boolean") return false;
+    if (Array.isArray(value)) return [];
+    if (isPlainObject(value)) {
+        const out = {};
+        for (const key of Object.keys(value).sort(stableStringCompare)) {
+            out[key] = buildMinimalShape(value[key], depth + 1);
+        }
+        return out;
+    }
+    return null;
+}
+
+function preserveEnvelopeFields(minimal, original) {
+    if (!isPlainObject(minimal) || !isPlainObject(original)) {
+        return minimal;
+    }
+
+    for (const key of ["schemaVersion", "interface", "kind"]) {
+        if (typeof original[key] === "string" && original[key].trim()) {
+            minimal[key] = truncateStringByBytes(original[key], 120);
+        }
+    }
+
+    return minimal;
+}
+
+export function estimateTokenUnits(value) {
+    const text = typeof value === "string" ? value : JSON.stringify(value);
+    const normalized = String(text ?? "");
+    const bytes = Buffer.byteLength(normalized, "utf8");
+    const punctuation = normalized.match(/[{}\[\]:,]/g)?.length ?? 0;
+    const words = normalized.match(/[A-Za-z0-9_]+/g)?.length ?? 0;
+    const base = Math.ceil(bytes / 3.2);
+    const overhead = Math.ceil(punctuation * 0.18) + Math.ceil(words * 0.06);
+    return base + overhead;
 }
 
 function budgetValue(value, options, pathParts = [], depth = 0) {
@@ -153,7 +267,7 @@ function reduceBudgetNode(node) {
     }
     if (node.type === "array") {
         const current = node.parent[node.key];
-        if (!Array.isArray(current) || current.length <= 1) {
+        if (!Array.isArray(current) || current.length <= 0) {
             return false;
         }
         current.pop();
@@ -182,16 +296,53 @@ export function limitString(value, maxBytes = CONTEXT_BUDGET.maxStringLength) {
     return truncateStringByBytes(value, maxBytes);
 }
 
+export function applyRuntimeBudget(payload, options = {}) {
+    const merged = {
+        maxPayloadBytes: CONTEXT_BUDGET.maxPayloadBytes,
+        maxApproxTokenUnits: CONTEXT_BUDGET.maxApproxTokenUnits,
+        maxStringLength: CONTEXT_BUDGET.maxStringLength,
+        maxArrayItems: CONTEXT_BUDGET.maxArraysPerResponse,
+        maxObjectKeysPerSection: CONTEXT_BUDGET.maxObjectKeysPerSection,
+        maxNestedDepth: CONTEXT_BUDGET.maxNestedDepth,
+        ...options,
+    };
+    return budgetJsonPayload(payload, merged);
+}
+
 export function budgetJsonPayload(payload, options = {}) {
     const normalized = budgetValue(payload, options);
     const maxPayloadBytes = toPositiveInteger(options.maxPayloadBytes, CONTEXT_BUDGET.maxPayloadBytes);
+    const maxApproxTokenUnits = toPositiveInteger(options.maxApproxTokenUnits, CONTEXT_BUDGET.maxApproxTokenUnits);
+    const optionalPaths = Array.isArray(options.optionalPaths)
+        ? options.optionalPaths.map(parsePathParts).filter((parts) => parts.length > 0)
+        : [];
     let text = JSON.stringify(normalized);
-    if (Buffer.byteLength(text, "utf8") <= maxPayloadBytes) {
+    let tokenUnits = estimateTokenUnits(text);
+    if (Buffer.byteLength(text, "utf8") <= maxPayloadBytes && tokenUnits <= maxApproxTokenUnits) {
         return normalized;
     }
 
     const budgeted = normalized;
-    for (let iteration = 0; iteration < 64; iteration += 1) {
+
+    if (optionalPaths.length > 0) {
+        const sortedOptionalPaths = [...new Set(optionalPaths.map((parts) => parts.join("/")))]
+            .map(parsePathParts)
+            .sort((a, b) => stablePathCompare(a.join("/"), b.join("/")));
+
+        for (const pathParts of sortedOptionalPaths) {
+            const current = getByPath(budgeted, pathParts);
+            if (current === undefined) continue;
+            const next = makeSchemaPlaceholder(current);
+            if (!setByPath(budgeted, pathParts, next)) continue;
+            text = JSON.stringify(budgeted);
+            tokenUnits = estimateTokenUnits(text);
+            if (Buffer.byteLength(text, "utf8") <= maxPayloadBytes && tokenUnits <= maxApproxTokenUnits) {
+                return budgeted;
+            }
+        }
+    }
+
+    for (let iteration = 0; iteration < 256; iteration += 1) {
         const nodes = collectBudgetNodes(budgeted);
         nodes.sort((a, b) => b.size - a.size || (a.type === b.type ? stablePathCompare(a.path, b.path) : a.type === "array" ? -1 : 1));
         let changed = false;
@@ -205,10 +356,18 @@ export function budgetJsonPayload(payload, options = {}) {
             break;
         }
         text = JSON.stringify(budgeted);
-        if (Buffer.byteLength(text, "utf8") <= maxPayloadBytes) {
+        tokenUnits = estimateTokenUnits(text);
+        if (Buffer.byteLength(text, "utf8") <= maxPayloadBytes && tokenUnits <= maxApproxTokenUnits) {
             return budgeted;
         }
     }
 
-    return budgeted;
+    const minimal = preserveEnvelopeFields(buildMinimalShape(normalized), normalized);
+    if (isPlainObject(minimal)) {
+        minimal._truncation = {
+            reduced: true,
+            reason: "budget_limit",
+        };
+    }
+    return minimal;
 }

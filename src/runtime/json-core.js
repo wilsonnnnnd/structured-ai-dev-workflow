@@ -44,6 +44,25 @@ function normalizeDependencies(value) {
         .sort(stableStringCompare);
 }
 
+function normalizeFactList(value, maxItems = 16, maxChars = 220) {
+    const list = Array.isArray(value) ? value : [];
+    const out = [];
+    const seen = new Set();
+    for (const item of list) {
+        const text = clampText(item, maxChars);
+        const key = text.toLowerCase();
+        if (!text || seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        out.push(text);
+        if (out.length >= maxItems) {
+            break;
+        }
+    }
+    return out;
+}
+
 function generatedAtFromSummary() {
     const summary = readJson(CONTEXT_INDEX_SUMMARY_PATH);
     const generatedAt = String(summary?.generatedAt ?? "").trim();
@@ -74,6 +93,16 @@ export function normalizeRuntimeTasks(tasks = getMergedTaskMetadata()) {
             hasAcceptanceCriteria: Boolean(task.hasAcceptanceCriteria),
             hasDefinitionOfDone: Boolean(task.hasDefinitionOfDone),
             hasTestCommand: Boolean(task.hasTestCommand),
+            facts: {
+                goal: clampText(task?.facts?.goal, 900) || null,
+                scope: normalizeFactList(task?.facts?.scope, 16, 220),
+                requirements: normalizeFactList(task?.facts?.requirements, 16, 220),
+                acceptanceCriteria: normalizeFactList(task?.facts?.acceptanceCriteria, 16, 220),
+                definitionOfDone: normalizeFactList(task?.facts?.definitionOfDone, 16, 220),
+                hardBoundaries: normalizeFactList(task?.facts?.hardBoundaries, 12, 220),
+                confirmationPoints: normalizeFactList(task?.facts?.confirmationPoints, 12, 220),
+                testCommand: clampText(task?.facts?.testCommand, 320) || null,
+            },
         }));
 }
 

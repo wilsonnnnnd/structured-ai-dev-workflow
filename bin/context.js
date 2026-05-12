@@ -28,7 +28,7 @@ import { getCachedBriefDigest, writeBriefDigestCache } from "../src/loop/context
 import { generateContextBrief, formatContextBriefCompact } from "../src/runtime/context-brief.js";
 import { computeContextHash, scoreContextCacheability } from "../src/runtime/context-compression.js";
 import { rankFilesForContext } from "../src/runtime/context-relevance.js";
-import { CONTEXT_BUDGET } from "../src/runtime/context-budget.js";
+import { applyRuntimeBudget, CONTEXT_BUDGET } from "../src/runtime/context-budget.js";
 import {
     buildContextBudget,
     buildContextTrace,
@@ -39,6 +39,10 @@ import {
 import { serializeCompactJson } from "../src/runtime/serialize.js";
 
 const LIMITS = CONTEXT_BUDGET.context;
+
+function serializeRuntimeJson(payload, options = {}) {
+    return serializeCompactJson(applyRuntimeBudget(payload, options));
+}
 
 function readTextSafe(filePath) {
     if (!exists(filePath)) {
@@ -1375,9 +1379,9 @@ export async function runContext(args = []) {
     }
 
     if (subcommand === "brief") {
-        output = serializeCompactJson(toContextBriefJson());
+        output = serializeRuntimeJson(toContextBriefJson());
     } else if (subcommand === "next-task") {
-        output = serializeCompactJson(toNextTaskJson());
+        output = serializeRuntimeJson(toNextTaskJson());
     } else if (subcommand === "workset") {
         const worksetIndex = args.indexOf(subcommand);
         const taskId = args.slice(worksetIndex + 1).find((arg) => !arg.startsWith("--"));
@@ -1390,7 +1394,7 @@ export async function runContext(args = []) {
             }
         }
         const detail = full ? "full" : digest ? "digest" : "compact";
-        output = serializeCompactJson(toWorksetJson(taskId, { deep, detail }));
+        output = serializeRuntimeJson(toWorksetJson(taskId, { deep, detail }));
     } else {
         console.error("Unknown context command.");
         console.log("Usage:");

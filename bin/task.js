@@ -32,13 +32,17 @@ import { getRepoRoot } from "../src/runtime/root-context.js";
 import { stableStringCompare } from "../src/runtime/stable-sort.js";
 import { computeContextHash, scoreContextCacheability } from "../src/runtime/context-compression.js";
 import { buildVolatilityPlan } from "../src/runtime/context-observability.js";
-import { CONTEXT_BUDGET } from "../src/runtime/context-budget.js";
+import { applyRuntimeBudget, CONTEXT_BUDGET } from "../src/runtime/context-budget.js";
 
 const TASK_DIR = "task";
 const DOC_TASK_LIMIT = 10;
 const PROMPT_LIMITS = CONTEXT_BUDGET.task.prompt;
 const CHECKLIST_LIMITS = CONTEXT_BUDGET.task.checklist;
 const PR_LIMITS = CONTEXT_BUDGET.task.pr;
+
+function serializeRuntimeJson(payload, options = {}) {
+    return serializeCompactJson(applyRuntimeBudget(payload, options));
+}
 
 function maybeAppendLearnableTaskEvent(event) {
     if (!isDirectory(".aidw")) {
@@ -940,7 +944,7 @@ function toPromptJson(taskId, options = {}) {
         };
     }
     const warnings = [];
-    const detail = readTaskDetail(selected, warnings);
+    const facts = selected?.facts && typeof selected.facts === "object" ? selected.facts : {};
     return {
         schemaVersion: "runtime/v1",
         interface: "cli",
@@ -953,13 +957,13 @@ function toPromptJson(taskId, options = {}) {
             owner: clampString(selected.owner, 80),
             dependencies: capList(selected.dependencies, 16, (item) => clampString(item, 32)),
             file: selected.file || null,
-            goal: clampString(extractSection(detail, "Goal"), 900) || null,
-            scope: parseSectionListBounded(detail, "Scope", 16, 220),
-            requirements: parseSectionListBounded(detail, "Requirements", 16, 220),
-            acceptanceCriteria: parseSectionListBounded(detail, "Acceptance Criteria", 16, 220),
-            testCommand: normalizeSectionCommand(extractSection(detail, "Test Command")) || null,
-            hardBoundaries: parseSectionListBounded(detail, "Hard Boundaries", 12, 220),
-            confirmationPoints: parseSectionListBounded(detail, "Confirmation Points", 12, 220),
+            goal: clampString(facts.goal, 900) || null,
+            scope: capList(facts.scope, 16, (item) => clampString(item, 220)),
+            requirements: capList(facts.requirements, 16, (item) => clampString(item, 220)),
+            acceptanceCriteria: capList(facts.acceptanceCriteria, 16, (item) => clampString(item, 220)),
+            testCommand: normalizeSectionCommand(facts.testCommand) || null,
+            hardBoundaries: capList(facts.hardBoundaries, 12, (item) => clampString(item, 220)),
+            confirmationPoints: capList(facts.confirmationPoints, 12, (item) => clampString(item, 220)),
         },
         workset: buildTaskWorkset(runtime, { deep: options.deep, detail: options.deep ? "full" : "compact" }),
         verification: {
@@ -981,7 +985,7 @@ function toChecklistJson(taskId, options = {}) {
         };
     }
     const warnings = [];
-    const detail = readTaskDetail(selected, warnings);
+    const facts = selected?.facts && typeof selected.facts === "object" ? selected.facts : {};
     return {
         schemaVersion: "runtime/v1",
         interface: "cli",
@@ -991,8 +995,8 @@ function toChecklistJson(taskId, options = {}) {
             title: clampString(selected.title, 180),
         },
         checklist: {
-            acceptanceCriteria: parseSectionListBounded(detail, "Acceptance Criteria", 16, 220),
-            definitionOfDone: parseSectionListBounded(detail, "Definition of Done", 16, 220),
+            acceptanceCriteria: capList(facts.acceptanceCriteria, 16, (item) => clampString(item, 220)),
+            definitionOfDone: capList(facts.definitionOfDone, 16, (item) => clampString(item, 220)),
             requiredChecks: capList(runtime.verification?.payload?.requiredChecks, 8, (item) => clampString(item, 120)),
             suggestedReadFiles: capList(runtime.context?.payload?.topFiles, options.deep ? 12 : 8, (file) => clampString(file?.path, 240)),
         },
@@ -1012,17 +1016,17 @@ function toPrJson(taskId, options = {}) {
         };
     }
     const warnings = [];
-    const detail = readTaskDetail(selected, warnings);
+    const facts = selected?.facts && typeof selected.facts === "object" ? selected.facts : {};
     return {
         schemaVersion: "runtime/v1",
         interface: "cli",
         kind: "task-pr-framing",
         pr: {
             title: `${clampString(selected.id, 32)} ${clampString(selected.title, 180)}`,
-            summary: clampString(extractSection(detail, "Goal"), 900) || null,
-            scope: parseSectionListBounded(detail, "Scope", 16, 220),
+            summary: clampString(facts.goal, 900) || null,
+            scope: capList(facts.scope, 16, (item) => clampString(item, 220)),
             verification: {
-                acceptanceCriteria: parseSectionListBounded(detail, "Acceptance Criteria", 16, 220),
+                acceptanceCriteria: capList(facts.acceptanceCriteria, 16, (item) => clampString(item, 220)),
                 requiredChecks: capList(runtime.verification?.payload?.requiredChecks, 8, (item) => clampString(item, 120)),
                 warnings: capList(runtime.verification?.payload?.warnings, 8, (item) => clampString(item, 180)),
             },
@@ -1896,7 +1900,7 @@ export async function runTask(args = []) {
         if (!prOk) {
             process.exitCode = 1;
         }
-        const output = serializeCompactJson(toPrJson(taskId, { deep: deepLocked }));
+        const output = serializeRuntimeJson(toPrJson(taskId, { deep: deepLocked }));
 
         console.log(output.trimEnd());
 
@@ -1911,7 +1915,7 @@ export async function runTask(args = []) {
         if (!taskId || !registry.exists || !findTaskById(registry, taskId)) {
             process.exitCode = 1;
         }
-        const output = serializeCompactJson(toChecklistJson(taskId, { deep: deepLocked }));
+        const output = serializeRuntimeJson(toChecklistJson(taskId, { deep: deepLocked }));
 
         console.log(output.trimEnd());
 
@@ -1926,7 +1930,7 @@ export async function runTask(args = []) {
         if (!taskId || !registry.exists || !findTaskById(registry, taskId)) {
             process.exitCode = 1;
         }
-        const output = serializeCompactJson(toPromptJson(taskId, { deep: deepLocked }));
+        const output = serializeRuntimeJson(toPromptJson(taskId, { deep: deepLocked }));
 
         console.log(output.trimEnd());
 

@@ -8,7 +8,8 @@ import { runInit } from "../bin/init.js";
 import { runScan } from "../bin/scan.js";
 import { createMcpServer } from "../src/mcp/server.js";
 import { MCP_CAPABILITY_TIERS, buildMcpCapabilityPolicy } from "../src/mcp/tools.js";
-import { CONTEXT_BUDGET, budgetJsonPayload } from "../src/runtime/context-budget.js";
+import { appendLoopEvent, listRecentLoopEvents } from "../src/loop/store.js";
+import { CONTEXT_BUDGET, budgetJsonPayload, estimateTokenUnits } from "../src/runtime/context-budget.js";
 import { serializeCompactJson } from "../src/runtime/serialize.js";
 
 const originalCwd = process.cwd();
@@ -101,6 +102,7 @@ function assertCompactJsonText(text, message) {
     const parsed = JSON.parse(trimmed);
     assert.equal(trimmed, JSON.stringify(parsed), message);
     assert.ok(Buffer.byteLength(trimmed, "utf8") <= CONTEXT_BUDGET.maxPayloadBytes, message);
+    assert.ok(estimateTokenUnits(trimmed) <= CONTEXT_BUDGET.maxApproxTokenUnits, message);
 }
 
 async function withMcpServer(options, callback) {
@@ -312,7 +314,8 @@ test("MCP exposes only core runtime/index/context/task/gate tools", async () => 
 
             const brief = await request("tools/call", { name: "rck.context.brief", arguments: {} });
             assert.equal(Boolean(brief.error), false);
-            assert.match(brief.result.content[0].text, /mcp-slim/);
+            assert.doesNotMatch(brief.result.content[0].text, /mcp-slim/);
+            assert.match(brief.result.content[0].text, /"schemaVersion":"runtime\/v1"/);
 
             const search = await request("tools/call", { name: "rck.file.search", arguments: { query: "widget" } });
             assert.match(search.result.content[0].text, /src\/widget\.js/);
@@ -431,6 +434,9 @@ test("MCP read tools return bounded runtime/v1 JSON without CLI shell transport"
                 assert.ok(Array.isArray(taskPrompt.parsed.context.entrypoints));
                 assert.ok(taskPrompt.parsed.context.entrypoints.length <= 12);
                 assert.ok(taskPrompt.parsed.context.riskAreas.length <= 10);
+                assert.equal(taskPrompt.parsed.task.testCommand?.includes("```"), false);
+                assert.equal(JSON.stringify(taskPrompt.parsed).includes("## Goal"), false);
+                assert.equal(JSON.stringify(taskPrompt.parsed).includes("## Scope"), false);
 
                 const taskChecklist = await callMcpTool(request, "rck.task.checklist", { taskId: "T-001" });
                 assert.equal(taskChecklist.parsed.schemaVersion, "runtime/v1");
@@ -535,6 +541,8 @@ test("CLI context/task defaults are JSON-first, bounded, and avoid full .aidw ma
                 assert.ok(parsed.task.acceptanceCriteria.length <= 16);
                 assert.equal(parsed.task.testCommand?.includes("```"), false);
             }
+
+            assert.ok(estimateTokenUnits(text) <= CONTEXT_BUDGET.maxApproxTokenUnits, args.join(" "));
         }
     });
 });
@@ -572,6 +580,134 @@ test("runtime budget helper truncates oversized payloads deterministically", () 
     assert.ok(budgeted.nested.c.length <= 5);
     assert.ok(budgeted.z.length <= 64);
     assert.equal(serializeCompactJson(budgetedRepeat), budgetedText);
+});
+
+test("runtime budget enforces approximate token units and drops optional sections first", () => {
+    const payload = {
+        schemaVersion: "runtime/v1",
+        interface: "mcp",
+        context: {
+            summary: "summary".repeat(120),
+            risks: Array.from({ length: 40 }, (_, index) => `risk-${index}`),
+            files: Array.from({ length: 80 }, (_, index) => ({
+                path: `src/feature/${String(index).padStart(3, "0")}.js`,
+                description: "detail".repeat(30),
+            })),
+        },
+        optional: {
+            debug: "debug".repeat(200),
+            notes: Array.from({ length: 40 }, (_, index) => `note-${index}`),
+        },
+    };
+
+    const budgeted = budgetJsonPayload(payload, {
+        maxPayloadBytes: 2400,
+        maxApproxTokenUnits: 260,
+        maxStringLength: 100,
+        maxArrayItems: 10,
+        maxObjectKeysPerSection: 8,
+        optionalPaths: ["optional"],
+    });
+    const text = serializeCompactJson(budgeted).trim();
+
+    assert.ok(Buffer.byteLength(text, "utf8") <= 2400);
+    assert.ok(estimateTokenUnits(text) <= 260);
+    assert.deepEqual(Object.keys(budgeted).sort(), ["context", "interface", "optional", "schemaVersion"]);
+    assert.equal(Array.isArray(budgeted.optional), false);
+    assert.equal(budgeted.optional, null);
+});
+
+test("oversize reduction preserves required runtime envelope and section keys", () => {
+    const payload = {
+        schemaVersion: "runtime/v1",
+        interface: "mcp",
+        kind: "task-prompt",
+        task: {
+            id: "T-001",
+            title: "Very long title ".repeat(100),
+            status: "todo",
+            priority: "high",
+            facts: {
+                goal: "Goal ".repeat(200),
+                scope: Array.from({ length: 100 }, (_, index) => `scope-${index}`),
+            },
+        },
+        context: {
+            entrypoints: Array.from({ length: 100 }, (_, index) => `entry-${index}`),
+            riskAreas: Array.from({ length: 100 }, (_, index) => `risk-${index}`),
+        },
+    };
+
+    const budgeted = budgetJsonPayload(payload, {
+        maxPayloadBytes: 220,
+        maxApproxTokenUnits: 80,
+        maxStringLength: 40,
+        maxArrayItems: 3,
+        maxNestedDepth: 8,
+    });
+
+    assert.equal(budgeted.schemaVersion, "runtime/v1");
+    assert.equal(typeof budgeted.interface, "string");
+    assert.equal(typeof budgeted.kind, "string");
+    assert.ok(Object.hasOwn(budgeted, "task"));
+    assert.ok(Object.hasOwn(budgeted, "context"));
+    assert.ok(Object.hasOwn(budgeted.task, "id"));
+    assert.ok(Object.hasOwn(budgeted.task, "title"));
+    assert.ok(Object.hasOwn(budgeted.task, "status"));
+    assert.ok(Object.hasOwn(budgeted.task, "priority"));
+});
+
+test("extreme oversize payload returns minimal valid schema shape", () => {
+    const payload = {
+        schemaVersion: "runtime/v1",
+        interface: "cli",
+        kind: "context-workset",
+        task: {
+            id: "T-001",
+            title: "x".repeat(10_000),
+            status: "todo",
+            priority: "high",
+        },
+        workset: {
+            files: Array.from({ length: 1_000 }, (_, index) => ({
+                path: `src/file-${index}.js`,
+                description: "y".repeat(200),
+            })),
+        },
+    };
+
+    const budgeted = budgetJsonPayload(payload, {
+        maxPayloadBytes: 64,
+        maxApproxTokenUnits: 20,
+        maxStringLength: 16,
+        maxArrayItems: 1,
+        maxNestedDepth: 8,
+    });
+
+    assert.equal(budgeted.schemaVersion, "runtime/v1");
+    assert.equal(Object.hasOwn(budgeted, "interface"), true);
+    assert.equal(Object.hasOwn(budgeted, "kind"), true);
+    assert.equal(Object.hasOwn(budgeted, "task"), true);
+    assert.equal(Object.hasOwn(budgeted, "workset"), true);
+    assert.equal(Object.hasOwn(budgeted, "_truncation"), true);
+    assert.equal(budgeted._truncation?.reduced, true);
+    assert.equal(budgeted._truncation?.reason, "budget_limit");
+});
+
+test("context loop history stays bounded and deterministic", async () => {
+    await withTempProject(async () => {
+        await withMutedConsole(() => runInit());
+
+        for (let index = 0; index < 80; index += 1) {
+            appendLoopEvent({ type: "test", taskId: "T-001", command: `npm test -- ${index}`, exitCode: index % 3 === 0 ? 1 : 0 });
+        }
+
+        const events = listRecentLoopEvents({ limit: 999, maxBytes: 999999, taskId: "T-001" });
+        assert.ok(events.length <= CONTEXT_BUDGET.maxLoopEvents);
+        const timestamps = events.map((event) => String(event.at ?? ""));
+        const sorted = [...timestamps].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+        assert.deepEqual(timestamps, sorted);
+    });
 });
 
 test("README and package manifest reflect the hard slim surface", () => {
