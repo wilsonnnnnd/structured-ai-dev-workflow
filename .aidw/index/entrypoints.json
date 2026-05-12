@@ -25,30 +25,6 @@
     },
     {
         "name": "CLI entry",
-        "path": "bin/auto.js",
-        "command": "auto",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
-        "path": "bin/bootstrap.js",
-        "command": "bootstrap",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
-        "path": "bin/budget.js",
-        "command": "budget",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
         "path": "bin/check.js",
         "command": "check",
         "description": "Likely CLI entry point under bin/.",
@@ -65,40 +41,8 @@
     },
     {
         "name": "CLI entry",
-        "path": "bin/decision.js",
-        "command": "decision",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
-        "path": "bin/execute.js",
-        "command": "execute",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
         "path": "bin/gate.js",
         "command": "gate",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
-        "path": "bin/github.js",
-        "command": "github",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
-        "path": "bin/hygiene.js",
-        "command": "hygiene",
         "description": "Likely CLI entry point under bin/.",
         "confidence": 0.7,
         "source": "heuristic"
@@ -113,32 +57,8 @@
     },
     {
         "name": "CLI entry",
-        "path": "bin/learn.js",
-        "command": "learn",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
-        "path": "bin/loop.js",
-        "command": "loop",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
         "path": "bin/metrics.js",
         "command": "metrics",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
-        "path": "bin/runtime.js",
-        "command": "runtime",
         "description": "Likely CLI entry point under bin/.",
         "confidence": 0.7,
         "source": "heuristic"
@@ -155,14 +75,6 @@
         "name": "CLI entry",
         "path": "bin/task.js",
         "command": "task",
-        "description": "Likely CLI entry point under bin/.",
-        "confidence": 0.7,
-        "source": "heuristic"
-    },
-    {
-        "name": "CLI entry",
-        "path": "bin/ui.js",
-        "command": "ui",
         "description": "Likely CLI entry point under bin/.",
         "confidence": 0.7,
         "source": "heuristic"

@@ -1,0 +1,26 @@
+{
+    "generatedAt": "2026-05-12T12:54:24.120Z",
+    "kind": "execution",
+    "payload": {
+        "commandPolicy": {
+            "arbitraryShell": false,
+            "externalSideEffects": "explicit-opt-in",
+            "testExecution": "confirmation-gate-allowlist"
+        },
+        "confirmationProtocol": "confirmation-protocol/v1",
+        "mcpCapabilityTiers": [
+            "read-only",
+            "workflow-write",
+            "test-exec",
+            "external-side-effect"
+        ]
+    },
+    "schemaVersion": "runtime/v1",
+    "source": {
+        "generatedBy": "repo-context-kit scan",
+        "inputs": [
+            ".aidw/confirmation-protocol.md",
+            ".aidw/safety.md"
+        ]
+    }
+}

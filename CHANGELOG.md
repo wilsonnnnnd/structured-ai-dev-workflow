@@ -1,5 +1,16 @@
 # repo-context-kit
 
+## 1.7.0
+
+### Minor Changes
+
+- Transition to a slim runtime-core architecture centered on runtime/v1 JSON (`task.json`, `context.json`, `execution.json`, `verification.json`) as the active source of truth.
+- Keep Markdown outputs as readable views instead of runtime authority.
+- Remove non-core CLI surfaces and deprecated debug/runtime helper command paths; retain a compact deterministic core (`init`, `scan`, `context`, `task`, `gate`, `check`, `metrics`).
+- Align package surface with runtime-first operation and MCP-first usage direction.
+- Reduce published package surface and tarball footprint after internal/runtime-chain removals.
+- Refresh generated indexes and metadata after hard deletion to preserve deterministic scan outputs.
+
 ## 1.6.2
 
 ### Patch Changes

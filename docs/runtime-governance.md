@@ -1,175 +1,40 @@
 # Runtime Governance
 
-repo-context-kit is a bounded AI coding preflight and workflow governance layer, not an autonomous agent.
+repo-context-kit governs AI coding agents. It does not act as one.
 
-It prepares context, keeps work explicit, and enforces hard safety gates before any controlled execution.
+## Canonical Runtime
 
-This document clarifies:
+Agents should prefer:
 
-- What each layer is responsible for
-- Which mechanisms are hard gates vs signals
-- What the default workflow is
-- How protocol enforcement differs from visible protocol rendering
-- What repo-context-kit does not do (by design)
+1. MCP tools
+2. `.aidw/runtime/*.json`
+3. bounded context/workset commands
 
-## Default Workflow (Recommended)
+Markdown is a compatibility view and legacy fallback.
 
-Use this as the default, human-controlled journey:
+## Hard Gates
 
-1. `repo-context-kit init`
-2. `repo-context-kit scan`
-3. `repo-context-kit bootstrap doctor`
-4. `repo-context-kit task new "Describe the change"`
-5. `repo-context-kit task prompt <taskId>`
-6. Implement changes with human control (manual edits, review, no autonomous execution)
-7. `repo-context-kit task checklist <taskId>`
-8. `repo-context-kit task pr <taskId>`
-9. `repo-context-kit scan --check`
-10. `repo-context-kit bootstrap doctor --check`
+- MCP default is read-only.
+- `workflow-write` requires explicit write enablement.
+- `test-exec` requires test enablement plus confirmation gate state.
+- `external-side-effect` requires explicit external-side-effect opt-in.
+- Test execution remains allowlisted.
+- Arbitrary shell execution is not supported.
 
-## Preflight Bundle (CI / Local)
+## Signals
 
-The recommended, read-only preflight bundle is:
+Doctor output, lessons, context-loop data, budget decisions, and risk summaries are signals. They may shape context or warnings. They must not trigger writes, tests, fixes, approvals, or external side effects without a hard gate.
 
-```bash
-repo-context-kit scan --check
-repo-context-kit bootstrap doctor --check
-```
+## Compact Output
 
-This bundle:
+CLI output should stay compact. Full protocol rendering is only for confirmations, tests, destructive/write/external side effects, unresolved scope, audit/debug, or machine-readable integrations.
 
-- Does not install dependencies
-- Does not write files
-- Does not apply fixes
-- Does not run arbitrary shell commands
-- Only checks and exits with a status code
+## Non-goals
 
-## Layers and Responsibilities
+repo-context-kit is not:
 
-### init
-
-Initializes the workflow scaffold (files under `.aidw/`, `task/`, and other managed workflow paths). Writes are conservative by default and avoid overwriting existing files unless explicitly forced.
-
-### scan
-
-Builds the repository map and indexes under `.aidw/` for bounded context generation.
-
-- `scan` refreshes generated context artifacts.
-- `scan --check` is a read-only CI-style check: it verifies that required generated context artifacts are present and up to date.
-
-### bootstrap doctor
-
-Read-only preflight risk gate. It analyzes project shape and dependency compatibility signals and reports risks with severities.
-
-- `bootstrap doctor` prints a human-readable preflight report.
-- `bootstrap doctor --check` is a deterministic gate with exit codes based on risk severity and policy flags (e.g., `--strict`, `--max-risks`).
-
-Doctor is not an auto-fixer. It does not install, does not write, and does not silently apply changes.
-
-Doctor scope is intentionally narrow: checks should be high-confidence, low-noise preflight risks that affect safe AI entry into a repo. New checks should answer "is this governance preflight necessary?" before they answer "could this be a framework lint?"
-
-### task workflow
-
-Task-level outputs that keep work reviewable:
-
-- `task prompt` produces an implementation prompt with bounded context references.
-- `task checklist` produces a verification checklist.
-- `task pr` produces PR/review-ready text and scoped cleanup steps.
-
-Task outputs are designed to be bounded and avoid dumping full indexes.
-
-### confirmation protocol
-
-Explicit human confirmation points that gate controlled actions. It provides traceable approval state (task confirmation, tests confirmation) that other components must respect.
-
-### gate / run-test
-
-Controlled test execution gate. It requires explicit confirmation and a token, and it enforces a strict allowlist of supported test commands.
-
-This is the only supported command execution surface, and it is intentionally narrow.
-
-### lessons / context-loop / budget
-
-Signals that influence how much context is produced and what guidance is surfaced. These are not ultimate gates.
-
-- lessons: curated checks and guidance patterns
-- context-loop: recent execution outcomes and signals
-- budget: bounded context level selection (off/auto/full)
-
-### MCP
-
-A runtime interface for AI tools. It is read-only by default.
-
-- Write and test tools require explicit opt-in flags.
-- External side-effect tools require a separate highest-risk opt-in.
-- Even with opt-in, tools are expected to respect hard gates (confirmation state, allowlists, bounded paths).
-
-## Hard Gates vs Signals
-
-### Hard gates
-
-These mechanisms can block progress with exit codes or explicit refusal:
-
-- Confirmation protocol (task/test confirmations)
-- Bootstrap apply boundary (whitelisted ops and paths only; requires explicit confirmation)
-- gate/run-test allowlist (no arbitrary shell; strict command set)
-- `scan --check`
-- `bootstrap doctor --check`
-
-### Signals (not ultimate gates)
-
-These mechanisms are guidance and context shaping inputs:
-
-- lessons
-- context-loop
-- budget decision
-- doctor summary included in task outputs
-
-Signals must not become actions by themselves. They may change warnings, context size, risk summaries, or suggested next steps, but they must not write files, run commands, apply fixes, or approve gates without an explicit hard gate.
-
-## Presentation Layer
-
-Protocol enforcement is internal runtime logic. Protocol rendering is a presentation concern.
-
-Default conversational output should be compact:
-
-```md
-State: IMPLEMENT
-Changed: task registry
-Tests: pending
-Risk: low
-```
-
-Full `## State` / `## Output` / `## Confirm` rendering is escalation-based. Use it for confirmations, unresolved scope, tests about to run, destructive/write/external side effects, unresolved risk, scope changes, audit/debug/review requests, or machine-readable integrations.
-
-The goal is a runtime kernel internally and a clean UI externally: deterministic governance stays intact, but normal chat does not expose repetitive protocol scaffolding.
-
-## MCP Capability Tiers
-
-MCP tools are grouped by capability tier:
-
-- `read-only`: reads bounded context, plans, risks, snapshots, summaries, or explanations.
-- `workflow-write`: writes only managed workflow artifacts and still requires opt-in write mode, runtime policy, evidence, and gate tokens where applicable.
-- `test-exec`: runs only allowlisted test commands through the confirmation gate.
-- `external-side-effect`: reaches outside the repo, such as creating a GitHub PR. These actions are highest risk and must stay explicit, never default.
-
-The server enforces these tiers as call policy, not only as metadata: default servers allow only `read-only`; `--enable-write` allows `workflow-write`; `--enable-write --enable-tests` allows `test-exec`; external side effects require an explicit external-side-effect opt-in in addition to write mode.
-
-## Determinism Notes (Freshness)
-
-`scan --check` and related freshness checks may use filesystem modification times (mtime) for some decisions. This is bounded and practical, but it can differ across machines or CI runners (e.g., archive extraction, checkout strategies, file timestamp normalization).
-
-Future improvements may move more freshness checks to content hashes, but the current design prioritizes bounded runtime cost and minimal architecture churn.
-
-## Non-goals (By Design)
-
-repo-context-kit does not:
-
-- Automatically install dependencies
-- Perform automatic git operations (commit/push/PR creation)
-- Execute arbitrary shell commands
-- Read or write files outside repoRoot
-- Autonomously modify business code
-- Act as an autonomous fixer
-
-See also [non-goals.md](./non-goals.md).
+- an autonomous agent
+- a general shell executor
+- a project manager UI
+- a replacement for human approval
+- an auto-fixer

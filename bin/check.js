@@ -424,8 +424,7 @@ export async function runCheck(args = []) {
     if (!lessonsRead.ok && lessonsRead.reason === "missing_or_invalid") {
         console.error("ERROR Missing or invalid .aidw/lessons.json");
         console.error("Next:");
-        console.error("- Run: repo-context-kit learn ingest");
-        console.error("- Then run: repo-context-kit learn approve");
+        console.error("- Restore .aidw/lessons.json or re-run: repo-context-kit init");
         process.exitCode = 1;
         return { ok: false };
     }

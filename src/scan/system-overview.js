@@ -187,12 +187,8 @@ export function generateSystemOverviewContent() {
         formatRecord(".aidw/confirmation-gate.json", "Local gate state for task/test confirmations (runtime file)"),
         formatRecord(".aidw/context-loop.jsonl", "Append-only context loop log for recent confirmations and test runs (runtime file)"),
         formatRecord(".aidw/context-cache.md", "Cached token-efficient brief context output (runtime file)"),
-        formatRecord("repo-context-kit loop report", "Summarize constraints and derived patterns from recent loop events"),
-        formatRecord("repo-context-kit scan --plan", "Preview scan writes before running scan (no writes)"),
-        formatRecord("repo-context-kit learn ingest", "Derive lessons from recent failures into .aidw/lessons.pending.json"),
-        formatRecord("repo-context-kit learn approve", "Apply pending lessons into .aidw/lessons.json"),
+        formatRecord("repo-context-kit metrics", "Print compact runtime metrics JSON"),
         formatRecord("repo-context-kit check", "Run checks derived from lessons (blocker rules fail by default)"),
-        formatRecord("repo-context-kit decision explain", "Explain recent automatic decisions (budget/output expansion)"),
     );
 
     lines.push(

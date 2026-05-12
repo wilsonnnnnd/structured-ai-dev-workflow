@@ -22,6 +22,10 @@ import {
     CONTEXT_PROJECT_MD_PATH,
     CONTEXT_SYSTEM_OVERVIEW_PATH,
     CONTEXT_TASKS_PATH,
+    RUNTIME_CONTEXT_PATH,
+    RUNTIME_EXECUTION_PATH,
+    RUNTIME_TASK_PATH,
+    RUNTIME_VERIFICATION_PATH,
 } from "./constants.js";
 import { getContextStatus } from "./context.js";
 import {
@@ -49,6 +53,10 @@ import {
 } from "./system-overview.js";
 import { getTaskConsistencyWarnings } from "./task-files.js";
 import { getProjectMdUpdate, updateProjectMd } from "./writers/project-md.js";
+import {
+    getRuntimeJsonUpdate,
+    updateRuntimeJson,
+} from "../runtime/json-core.js";
 
 function isPlainObject(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -347,6 +355,16 @@ function getUpdatedIndexFiles(indexUpdate) {
     if (indexUpdate.tasksChanged) {
         updatedFiles.push(CONTEXT_TASKS_PATH);
     }
+    for (const filePath of [
+        RUNTIME_TASK_PATH,
+        RUNTIME_CONTEXT_PATH,
+        RUNTIME_EXECUTION_PATH,
+        RUNTIME_VERIFICATION_PATH,
+    ]) {
+        if (indexUpdate.runtimeChanged?.[filePath]) {
+            updatedFiles.push(filePath);
+        }
+    }
 
     return updatedFiles;
 }
@@ -395,8 +413,8 @@ function printDefaultScanResult(result) {
     );
     console.log("");
     console.log("Next:");
-    console.log('* Define work: repo-context-kit task new "Describe the work"');
-    console.log("* Or prepare AI context: repo-context-kit context next");
+    console.log("* Provide task/task.md and task/T-*.md files");
+    console.log("* Or prepare AI context: repo-context-kit context next-task");
     printWarnings(result.warnings);
 }
 
@@ -438,6 +456,10 @@ const PLAN_OUTPUTS = [
     CONTEXT_INDEX_ENTRYPOINTS_PATH,
     CONTEXT_INDEX_SUMMARY_PATH,
     CONTEXT_TASKS_PATH,
+    RUNTIME_TASK_PATH,
+    RUNTIME_CONTEXT_PATH,
+    RUNTIME_EXECUTION_PATH,
+    RUNTIME_VERIFICATION_PATH,
 ];
 
 const PLAN_SKIPPED_DIRS = new Set([
@@ -699,7 +721,6 @@ export function computeContextFreshness(options = {}) {
     const snapshotsStat = fs.existsSync(snapshotsPath) ? fs.statSync(snapshotsPath) : null;
     const snapshotsMissing = !snapshotsStat || !snapshotsStat.isFile() || snapshotsStat.size === 0;
 
-    const scaffoldPlanPath = path.resolve(getRepoRoot(), ".aidw/bootstrap/plan.json");
     const scaffoldPlanOutdated = fs.existsSync(scaffoldPlanPath) ? (() => {
         try {
             const parsed = JSON.parse(fs.readFileSync(scaffoldPlanPath, "utf-8"));
@@ -773,7 +794,7 @@ export function computeContextFreshness(options = {}) {
             id: "scaffold_plan_outdated",
             triggered: Boolean(scaffoldPlanOutdated),
             penalty: 10,
-            evidence: { path: fs.existsSync(scaffoldPlanPath) ? ".aidw/bootstrap/plan.json" : null },
+            evidence: { path: null },
             suggestedAction: "Re-generate the scaffold plan and re-verify confirmation tokens before apply.",
         },
     ];
@@ -836,17 +857,20 @@ function combineCheckUpdates(projectUpdate, systemOverviewUpdate, warnings) {
     const taskMapChanged =
         JSON.stringify(readJson(CONTEXT_TASKS_PATH) ?? null) !==
         JSON.stringify(buildTaskMap());
+    const runtimeChanged = getRuntimeJsonUpdate(buildProjectScanData(), warnings);
 
     return {
         changed:
             projectUpdate.changed ||
             systemOverviewUpdate.changed ||
             taskMapChanged ||
+            Object.values(runtimeChanged).some(Boolean) ||
             warnings.length > 0,
         skipped: projectUpdate.skipped,
         projectChanged: projectUpdate.changed,
         systemOverviewChanged: systemOverviewUpdate.changed,
         taskMapChanged,
+        runtimeChanged,
         taskRegistryChanged: warnings.length > 0,
     };
 }
@@ -910,6 +934,9 @@ function printCheckResult(update) {
     }
     if (update.taskMapChanged) {
         console.log(`* ${CONTEXT_TASKS_PATH} is missing or out of date`);
+    }
+    if (update.runtimeChanged && Object.values(update.runtimeChanged).some(Boolean)) {
+        console.log(`* ${RUNTIME_TASK_PATH} and runtime JSON views are missing or out of date`);
     }
     if (update.taskRegistryChanged) {
         console.log("* task registry and task files are inconsistent");
@@ -1129,6 +1156,7 @@ export async function runScan(options = {}) {
     const content = generateProjectMdContent(scanData);
     const taskWarnings = getTaskConsistencyWarnings();
     const indexUpdate = updateProjectIndexSafe();
+    indexUpdate.runtimeChanged = updateRuntimeJson(scanData, taskWarnings);
     const systemOverviewUpdate = updateSystemOverview(
         generateSystemOverviewContent(),
     );
@@ -1141,7 +1169,10 @@ export async function runScan(options = {}) {
     const result = createScanResult(
         {
             ...update,
-            changed: update.changed || systemOverviewUpdate.changed,
+            changed:
+                update.changed ||
+                systemOverviewUpdate.changed ||
+                Object.values(indexUpdate.runtimeChanged || {}).some(Boolean),
         },
         scanData,
         updatedFiles,

@@ -1,7 +1,7 @@
 {
     "name": "repo-context-kit",
-    "version": "1.6.2",
-    "description": "A bounded AI coding preflight and workflow governance CLI.",
+    "version": "1.7.0",
+    "description": "Compact deterministic repository runtime for AI coding agents.",
     "type": "module",
     "engines": {
         "node": ">=18"
@@ -29,7 +29,6 @@
         "bin",
         "src",
         "template",
-        "site",
         "README.md",
         "LICENSE"
     ],

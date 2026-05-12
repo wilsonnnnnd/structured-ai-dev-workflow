@@ -50,26 +50,15 @@ The repository is packaged for npm distribution.
 - .claude/ -> Claude-compatible skill modules and executor logic
 
 ## Entry Points
-- bin/auto.js -> CLI command entry or command helper
-- bin/bootstrap.js -> CLI command entry or command helper
-- bin/budget.js -> CLI command entry or command helper
 - bin/check.js -> CLI command entry or command helper
 - bin/cli.js -> CLI command entry or command helper
 - bin/context.js -> CLI command entry or command helper
-- bin/decision.js -> CLI command entry or command helper
-- bin/execute.js -> CLI command entry or command helper
 - bin/gate.js -> CLI command entry or command helper
-- bin/github.js -> CLI command entry or command helper
-- bin/hygiene.js -> CLI command entry or command helper
 - bin/init.js -> CLI command entry or command helper
-- bin/learn.js -> CLI command entry or command helper
-- bin/loop.js -> CLI command entry or command helper
 - bin/mcp.js -> CLI command entry or command helper
 - bin/metrics.js -> CLI command entry or command helper
-- bin/runtime.js -> CLI command entry or command helper
 - bin/scan.js -> CLI command entry or command helper
 - bin/task.js -> CLI command entry or command helper
-- bin/ui.js -> CLI command entry or command helper
 - bin/_cli-utils.js -> CLI command entry or command helper
 
 ## Reusable System
@@ -105,7 +94,9 @@ Edit this file directly. repo-context-kit reads it during `scan` and summarizes 
 
 ## Project Purpose
 
-repo-context-kit is a bounded AI coding preflight and workflow governance layer, not an autonomous agent. It prepares repositories for AI-assisted development by generating context, workflow guidance, task scaffolds, preflight checks, and MCP/runtime surfaces with explicit safety boundaries.
+repo-context-kit is a repository runtime and context governance layer for AI coding agents. It gives Codex, Cursor, Claude, Trae, MCP clients, and other AI coding tools bounded repository context, task state, verification guidance, and gated action surfaces with explicit human approval boundaries.
+
+It is not an autonomous agent. Humans remain responsible for installation, initialization, authorization, review, and final decisions.
 
 ## Tech Stack
 
@@ -118,17 +109,18 @@ repo-context-kit is a bounded AI coding preflight and workflow governance layer,
 
 ## Product / Domain Requirements
 
-- Keep the default user workflow small: `init`, `scan`, `bootstrap doctor`, `task new`, `task prompt`, `implement`, `task checklist`, `task pr`, `scan --check`, `bootstrap doctor --check`.
+- Position MCP and runtime outputs as the primary agent-facing interface.
+- Keep the CLI as a debugging interface, compatibility layer, manual fallback, and CI/preflight surface.
 - Treat `.aidw/` as runtime/generated governance context.
 - Treat `PROJECT.md` as the human-owned project brief.
 - Keep protocol enforcement internal and compact output as the default external presentation.
 - Preserve deterministic behavior for scan/check/doctor outputs.
+- Preserve the runtime flow: AI agent -> repo-context-kit -> bounded repo context -> task runtime -> gated actions -> verification -> delivery report.
 
 ## Architecture Notes
 
 - `bin/` contains CLI entry points and command handlers.
 - `src/scan/` contains project detection, index generation, and generated context writers.
-- `src/bootstrap/` contains bootstrap planning, doctor, diff, explain, and apply logic.
 - `src/mcp/` exposes the MCP runtime interface.
 - `template/` contains files copied by `repo-context-kit init`.
 - `test/cli.test.js` is the main regression suite.
@@ -146,6 +138,7 @@ repo-context-kit is a bounded AI coding preflight and workflow governance layer,
 - Do not add hidden execution, silent modification, or auto-fix behavior.
 - Do not let signals such as doctor summaries, lessons, or budget decisions become actions without explicit gates.
 - Keep MCP write/test/external side-effect capabilities opt-in and tiered.
+- Do not make repo-context-kit a general shell executor, project manager UI, or replacement for human approval.
 
 ## AI Collaboration Preferences
 
@@ -158,15 +151,15 @@ repo-context-kit is a bounded AI coding preflight and workflow governance layer,
 <!-- PDGL:v1 START -->
 ### Project Identity
 - Project Name: repo-context-kit
-- One-line Summary: Bounded AI coding preflight and workflow governance layer.
-- Target Users: Developers using AI coding tools in existing repositories.
-- Non-goals: Autonomous agent behavior, hidden execution, silent source modification.
+- One-line Summary: Repository runtime and context governance layer for AI coding agents.
+- Target Users: AI coding tools, MCP clients, and developers using them in existing repositories.
+- Non-goals: Autonomous agent behavior, hidden execution, silent source modification, general shell execution, project manager UI, replacement for human approval.
 
 ### Product / Runtime Intent
-- What problem does this project solve?: It gives AI coding tools deterministic repo context, preflight checks, task workflow, and explicit gates before risky actions.
+- What problem does this project solve?: It gives AI coding tools deterministic repo context, task runtime state, preflight checks, verification artifacts, and explicit gates before risky actions.
 - What should AI optimize for?: Bounded context, review-first workflow, deterministic outputs, safety boundaries.
-- What must AI avoid?: Auto-fixing, arbitrary shell execution, dependency installation, silent PR creation, broad unrelated refactors.
-- What is intentionally out of scope?: Full IDE replacement, autonomous coding runtime, project management suite.
+- What must AI avoid?: Auto-fixing, arbitrary shell execution, dependency installation, silent PR creation, broad unrelated refactors, approving gates on behalf of humans.
+- What is intentionally out of scope?: Full IDE replacement, autonomous coding runtime, project management suite, general shell executor.
 
 ### Stack Decisions
 - Language: JavaScript
@@ -181,11 +174,11 @@ repo-context-kit is a bounded AI coding preflight and workflow governance layer,
 - Dangerous operations: hidden execution, external side effects, destructive git operations
 - Deployment boundaries: npm package metadata and release config require explicit scope
 - Network restrictions: no network use unless explicitly requested by a command/integration
-- Command restrictions: tests only through explicit commands/gates
+- Command restrictions: tests only through explicit commands/gates; no arbitrary shell execution
 - MCP write policy: tiered read-only / workflow-write / test-exec / external-side-effect
 
 ### Development Workflow
-- Preferred workflow: init -> scan -> bootstrap doctor -> task new -> task prompt -> implement -> task checklist -> task pr -> scan --check -> doctor --check
+- Preferred workflow: AI agent -> repo-context-kit -> bounded repo context -> task runtime -> gated actions -> verification -> delivery report
 - Testing strategy: npm test
 - Definition of Done: scoped implementation, tests pass, generated context refreshed when relevant
 - Required verification: run focused tests or full npm test for workflow/runtime changes
@@ -195,13 +188,13 @@ repo-context-kit is a bounded AI coding preflight and workflow governance layer,
 - Entry points: bin/cli.js, bin/mcp.js
 - Directory conventions: bin for commands, src for implementation, template for initialized files, test for regression suite
 - Config sources: package.json, template files, .aidw runtime context
-- Critical modules: scan, bootstrap doctor, task workflow, MCP tools, gate/runtime policy
+- Critical modules: scan, runtime JSON, context/task views, MCP tools, gate/runtime policy
 - Shared abstractions: stable sorting, bounded context, runtime gates, MCP capability tiers
 
 ### Bootstrap Guidance
 - Recommended scaffold: existing repo init via repo-context-kit init
 - Manual setup steps: edit PROJECT.md, run scan, review doctor output
-- Human-required setup: task scope confirmation, test approval, external side-effect approval
+- Human-required setup: install, init, authorization, task scope confirmation, test approval, external side-effect approval, final decision
 - Secrets/config setup expectations: never print or store secrets outside explicit auth helpers
 
 ### AI Collaboration Rules
@@ -215,13 +208,13 @@ repo-context-kit is a bounded AI coding preflight and workflow governance layer,
 
 <!-- SHC:v1 START -->
 ### Project Goal
-- Provide a bounded AI coding preflight and workflow governance layer.
+- Provide a repository runtime and context governance layer for AI coding agents.
 
 ### Target Users
-- Developers and teams using AI coding assistants on real repositories.
+- AI coding tools, MCP clients, and developers or teams supervising them on real repositories.
 
 ### Non-goals
-- Autonomous agent execution, silent fixes, arbitrary shell runtime, full IDE replacement.
+- Autonomous agent execution, silent fixes, arbitrary shell runtime, full IDE replacement, project manager UI, replacement for human approval.
 
 ### Stack Decisions
 - Node.js ESM CLI distributed through npm.

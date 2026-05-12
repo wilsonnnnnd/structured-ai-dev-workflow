@@ -1,12 +1,12 @@
 [
     {
         "path": "bin",
-        "fileCount": 21,
+        "fileCount": 10,
         "summary": "CLI entrypoints and command wrappers.",
         "keyFiles": [
             "bin/_cli-utils.js",
-            "bin/auto.js",
-            "bin/bootstrap.js"
+            "bin/check.js",
+            "bin/cli.js"
         ]
     },
     {
@@ -20,16 +20,6 @@
         ]
     },
     {
-        "path": "src/runtime",
-        "fileCount": 26,
-        "summary": "Source modules for application behavior.",
-        "keyFiles": [
-            "src/runtime/context-brief.js",
-            "src/runtime/context-cache.js",
-            "src/runtime/context-compression.js"
-        ]
-    },
-    {
         "path": "src/scan",
         "fileCount": 18,
         "summary": "Project scanning, context validation, and index generation logic.",
@@ -40,23 +30,13 @@
         ]
     },
     {
-        "path": "src/bootstrap",
+        "path": "src/runtime",
         "fileCount": 12,
         "summary": "Source modules for application behavior.",
         "keyFiles": [
-            "src/bootstrap/apply.js",
-            "src/bootstrap/constants.js",
-            "src/bootstrap/diff.js"
-        ]
-    },
-    {
-        "path": "src/hygiene",
-        "fileCount": 5,
-        "summary": "Source modules for application behavior.",
-        "keyFiles": [
-            "src/hygiene/apply.js",
-            "src/hygiene/constants.js",
-            "src/hygiene/plan.js"
+            "src/runtime/context-brief.js",
+            "src/runtime/context-compression.js",
+            "src/runtime/context-observability.js"
         ]
     },
     {
@@ -67,16 +47,6 @@
             "src/mcp/errors.js",
             "src/mcp/server.js",
             "src/mcp/spawn-cli.js"
-        ]
-    },
-    {
-        "path": "src/github",
-        "fileCount": 3,
-        "summary": "Source modules for application behavior.",
-        "keyFiles": [
-            "src/github/auth.js",
-            "src/github/git.js",
-            "src/github/pulls.js"
         ]
     },
     {
@@ -99,24 +69,6 @@
         ]
     },
     {
-        "path": "src/docs",
-        "fileCount": 2,
-        "summary": "Source modules for application behavior.",
-        "keyFiles": [
-            "src/docs/doc-extractor.js",
-            "src/docs/doc-loader.js"
-        ]
-    },
-    {
-        "path": "src/executor",
-        "fileCount": 2,
-        "summary": "Source modules for application behavior.",
-        "keyFiles": [
-            "src/executor/runner.js",
-            "src/executor/state.js"
-        ]
-    },
-    {
         "path": "src/gate",
         "fileCount": 2,
         "summary": "Source modules for application behavior.",
@@ -126,11 +78,11 @@
         ]
     },
     {
-        "path": "src/auto",
+        "path": "src/docs",
         "fileCount": 1,
         "summary": "Source modules for application behavior.",
         "keyFiles": [
-            "src/auto/orchestrator.js"
+            "src/docs/doc-extractor.js"
         ]
     },
     {

@@ -1,91 +1,31 @@
-# Runtime Architecture (Bounded)
+# Runtime Architecture
 
-This document explains how repo-context-kit works as a bounded AI coding preflight and workflow governance layer. It is not an autonomous coding agent.
+repo-context-kit is an agent-facing runtime/context layer. JSON is the source of truth; Markdown is a readable compatibility view.
 
-## Workflow Diagram
-
-```
-goal
-  ↓
-task (human-reviewable markdown)
-  ↓
-workset (bounded context selection)
-  ↓
-runtime contract (validated, deterministic JSON)
-  ↓
-risks (structured risk intelligence)
-  ↓
-snapshots (append-only, bounded history)
-  ↓
-explainability (why / evidence / next actions)
-  ↓
-MCP runtime interface (read-only by default)
+```text
+AI agent / MCP client
+  -> repo-context-kit-mcp
+  -> .aidw/runtime/*.json
+  -> bounded context/workset
+  -> gated action
+  -> verification report
 ```
 
-## Runtime Layers
+## Runtime JSON Core
 
-```
-Repo root
-├─ init            (scaffolding you review + commit)
-├─ scan            (.aidw indexes: files, symbols, summaries)
-├─ task runtime    (task registry + task files)
-├─ workset runtime (bounded selection + manifests + caps)
-├─ contract        (stable payload for tools/integrations)
-├─ intelligence    (risks, lessons, decision explain)
-└─ observability   (snapshots, diff, retention warnings)
-```
+- `.aidw/runtime/task.json`: bounded task registry and task health signals.
+- `.aidw/runtime/context.json`: bounded repo context/index summary.
+- `.aidw/runtime/execution.json`: execution policy, gate expectations, MCP tiers.
+- `.aidw/runtime/verification.json`: verification requirements and task health.
 
-## Snapshot Lifecycle
+All runtime core files use `schemaVersion: "runtime/v1"` and deterministic bounded payloads.
 
-```
-contract (bounded)
-  ↓
-write snapshot (append-only)
-  ↓
-list / read / explain / diff
-  ↓
-human review + debugging + audit
-```
+## Compatibility Layers
 
-Snapshot rules:
+- `task/*.md` and `.aidw/*.md` remain readable views and legacy inputs.
+- CLI commands remain compatibility/debug/CI surfaces.
+- MCP is the primary agent interface.
 
-- No source code storage
-- Prompt is truncated
-- Workset text is truncated
-- Deterministic ordering
+## Non-runtime Surfaces
 
-## MCP Interaction Flow
-
-```
-AI tool (MCP client)
-  ↕
-repo-context-kit-mcp (stdio)
-  ↕
-repo-context-kit CLI modules (read-only by default)
-  ↕
-bounded outputs (contracts / risks / snapshots / explanations)
-```
-
-MCP safety model:
-
-- Default: read-only tools only
-- `--enable-write`: exposes write-limited tools (task/pause/snapshot writes), still no source edits
-- `--enable-tests`: allows allowlisted test execution, still token-gated
-- Capability tiers are explicit: `read-only`, `workflow-write`, `test-exec`, and `external-side-effect`
-- Capability tiers are enforced as call policy; disabled tiers are refused even if a future tool is accidentally registered
-- External side effects such as PR creation stay outside the default runtime path and require a separate explicit opt-in
-
-## Bounded Execution Model
-
-repo-context-kit is designed for:
-
-- Deterministic workflows
-- Human confirmation points
-- Inspectable outputs (contracts, risks, snapshots)
-
-repo-context-kit is not designed for:
-
-- Autonomous code editing
-- Arbitrary shell execution
-- Background agent daemons
-- Self-healing repositories
+Local UI, verbose command journeys, manual cleanup guides, and tutorial-style workflows are outside the product boundary.

@@ -7,6 +7,7 @@ import {
     CONTEXT_SYSTEM_OVERVIEW_PATH,
     CONTEXT_TASKS_PATH,
     HUMAN_PROJECT_BRIEF_PATH,
+    RUNTIME_TASK_PATH,
     TASK_REGISTRY_PATH,
 } from "../src/scan/constants.js";
 import { exists, isDirectory, listDirSafe, readText, writeText } from "../src/scan/fs-utils.js";
@@ -14,10 +15,8 @@ import { evaluateContextLoop } from "../src/loop/analyze.js";
 import { appendLoopEvent } from "../src/loop/store.js";
 import { resolveBudgetMode } from "../src/budget/policy.js";
 import { formatBudgetDecisionMarkdown } from "../src/budget/decision.js";
-import { resolveCurrentGitBranch, resolveGitHubRepoFromGitRemote } from "../src/github/git.js";
-import { createPullRequest } from "../src/github/pulls.js";
-import { getGitHubTokenFromUserConfig } from "../src/github/auth.js";
 import { buildTaskMap } from "../src/scan/indexers/project-index.js";
+import { getPreferredTaskRegistry, updateRuntimeTaskJson } from "../src/runtime/json-core.js";
 import {
     appendTaskToRegistry,
     ensureTaskRegistry,
@@ -25,11 +24,9 @@ import {
     parseTaskRegistry,
     resolveTaskFilePath,
 } from "../src/scan/task-registry.js";
-import { loadDesignDoc } from "../src/docs/doc-loader.js";
-import { extractMarkdownListItems, extractPlanningData } from "../src/docs/doc-extractor.js";
+import { extractMarkdownListItems } from "../src/docs/doc-extractor.js";
 import { serializeJson } from "../src/runtime/serialize.js";
 import { getRepoRoot } from "../src/runtime/root-context.js";
-import { bootstrapDoctor } from "../src/bootstrap/doctor.js";
 import { stableStringCompare } from "../src/runtime/stable-sort.js";
 import { computeContextHash, scoreContextCacheability } from "../src/runtime/context-compression.js";
 import { buildVolatilityPlan } from "../src/runtime/context-observability.js";
@@ -336,86 +333,7 @@ function renderCappedBulletList(text, { maxItems = 12, maxItemChars = 240 } = {}
 }
 
 function renderBootstrapDoctorSummary({ maxRisks = 5, maxActions = 6 } = {}) {
-    const root = getRepoRoot();
-    try {
-        const doctor = bootstrapDoctor({ repoRoot: root });
-        const payload = doctor?.json && typeof doctor.json === "object" ? doctor.json : null;
-        if (!payload) {
-            return [
-                "## Bootstrap Doctor Summary",
-                "",
-                "- status: unavailable",
-                "- reason: doctor output is missing",
-                "- boundaries: writes=false installs=false lockfileChanges=false network=false",
-            ].join("\n");
-        }
-
-        const shape = String(payload?.projectShape?.shape ?? "unknown");
-        const risks = Array.isArray(payload.risks) ? payload.risks : [];
-        const safe = Array.isArray(payload?.suggestedActions?.safe_actions) ? payload.suggestedActions.safe_actions : [];
-        const manual = Array.isArray(payload?.suggestedActions?.manual_review_actions) ? payload.suggestedActions.manual_review_actions : [];
-        const topRisks = risks.slice(0, Math.max(0, Number(maxRisks) || 0));
-        const topSafe = safe.slice(0, Math.max(0, Number(maxActions) || 0));
-        const topManual = manual.slice(0, Math.max(0, Number(maxActions) || 0));
-
-        const lines = [
-            "## Bootstrap Doctor Summary",
-            "",
-            `- status: ${payload.status}`,
-            `- project_shape: ${shape}`,
-            "",
-        ];
-        if (topRisks.length) {
-            lines.push("Top risks:");
-            for (const risk of topRisks) {
-                const sev = String(risk?.severity ?? "").trim();
-                const code = String(risk?.code ?? "").trim();
-                const msg = String(risk?.message ?? "").trim();
-                lines.push(`- [${sev}] ${code}: ${msg}`);
-            }
-            lines.push("");
-        }
-        if (topSafe.length) {
-            lines.push("safe_actions:");
-            for (const action of topSafe) lines.push(`- ${action}`);
-            lines.push("");
-        }
-        if (topManual.length) {
-            lines.push("manual_review_actions:");
-            for (const action of topManual) lines.push(`- ${action}`);
-            lines.push("");
-        }
-        lines.push("Boundaries:");
-        lines.push("- writes: false");
-        lines.push("- installs: false");
-        lines.push("- lockfileChanges: false");
-        lines.push("- network: false");
-
-        const manualRequired = topManual.length > 0 || payload.status === "error";
-        lines.push("");
-        lines.push("## Doctor Gate Reminder");
-        lines.push("");
-        lines.push(`- highest_severity: ${payload.status === "error" ? "error" : payload.status === "warning" ? "warning" : "info"}`);
-        lines.push(`- unresolved_risks: ${risks.length}`);
-        lines.push(`- manual_review_required: ${manualRequired ? "true" : "false"}`);
-
-        return lines.join("\n").trimEnd();
-    } catch (error) {
-        const message = error?.message ? String(error.message) : String(error);
-        return [
-            "## Bootstrap Doctor Summary",
-            "",
-            "- status: unavailable",
-            `- reason: ${message}`,
-            "- boundaries: writes=false installs=false lockfileChanges=false network=false",
-            "",
-            "## Doctor Gate Reminder",
-            "",
-            "- highest_severity: unknown",
-            "- unresolved_risks: 0",
-            "- manual_review_required: true",
-        ].join("\n");
-    }
+    return "";
 }
 
 function extractSection(content, heading) {
@@ -588,6 +506,7 @@ function removeTaskRowFromRegistry(taskId) {
 function regenerateTasksJson() {
     const tasks = buildTaskMap();
     writeText(CONTEXT_TASKS_PATH, `${JSON.stringify(tasks, null, 4)}\n`);
+    updateRuntimeTaskJson();
     return CONTEXT_TASKS_PATH;
 }
 
@@ -651,6 +570,7 @@ function planTaskCleanup(task) {
 
     if (isDirectory(".aidw")) {
         updated.push(CONTEXT_TASKS_PATH);
+        updated.push(RUNTIME_TASK_PATH);
     }
 
     return {
@@ -964,7 +884,7 @@ function buildTaskPrDescription(taskId, options = {}) {
     let verbose = Boolean(options.verbose);
     let maxChars = deep ? PR_LIMITS.deep : PR_LIMITS.default;
     const warnings = [];
-    const registry = parseTaskRegistry();
+    const registry = getPreferredTaskRegistry();
 
     if (budget === "full") {
         if (!options.deepLocked) deep = true;
@@ -984,7 +904,7 @@ function buildTaskPrDescription(taskId, options = {}) {
     }
 
     if (!registry.exists) {
-        warnings.push(`${TASK_REGISTRY_PATH} is missing. Create tasks with repo-context-kit task new or restore the task registry.`);
+        warnings.push(`${TASK_REGISTRY_PATH} is missing. Restore the task registry and run repo-context-kit scan.`);
         return renderBoundedPrompt([
             "# Pull Request Description",
             `Warning: ${TASK_REGISTRY_PATH} is missing.`,
@@ -1230,7 +1150,7 @@ function buildTaskChecklist(taskId, options = {}) {
     let verbose = Boolean(options.verbose);
     let maxChars = deep ? CHECKLIST_LIMITS.deep : CHECKLIST_LIMITS.default;
     const warnings = [];
-    const registry = parseTaskRegistry();
+    const registry = getPreferredTaskRegistry();
 
     if (budget === "full") {
         if (!options.deepLocked) deep = true;
@@ -1250,7 +1170,7 @@ function buildTaskChecklist(taskId, options = {}) {
     }
 
     if (!registry.exists) {
-        warnings.push(`${TASK_REGISTRY_PATH} is missing. Create tasks with repo-context-kit task new or restore the task registry.`);
+        warnings.push(`${TASK_REGISTRY_PATH} is missing. Restore the task registry and run repo-context-kit scan.`);
         return renderBoundedPrompt([
             "# Task Test Checklist",
             `Warning: ${TASK_REGISTRY_PATH} is missing.`,
@@ -1471,7 +1391,7 @@ export function buildTaskPrompt(taskRef, options = {}) {
     let verbose = Boolean(options.verbose);
     let maxChars = deep ? PROMPT_LIMITS.deep : PROMPT_LIMITS.default;
     const warnings = [];
-    const registry = parseTaskRegistry();
+    const registry = getPreferredTaskRegistry();
     const taskId = typeof taskRef === "string" ? taskRef : null;
     const providedTask = taskRef && typeof taskRef === "object" ? taskRef : null;
 
@@ -1499,7 +1419,7 @@ export function buildTaskPrompt(taskRef, options = {}) {
     }
 
     if (!registry.exists && !providedTask) {
-        warnings.push(`${TASK_REGISTRY_PATH} is missing. Create tasks with repo-context-kit task new or restore the task registry.`);
+        warnings.push(`${TASK_REGISTRY_PATH} is missing. Restore the task registry and run repo-context-kit scan.`);
         return renderBoundedPrompt([
             "# Task Implementation Prompt",
             `Warning: ${TASK_REGISTRY_PATH} is missing.`,
@@ -1777,18 +1697,22 @@ export async function runTask(args = []) {
 
     if (subcommand === "help" || subcommand === "--help") {
         console.log("Usage:");
-        console.log('  repo-context-kit task new "Task title" [--force] [--dry-run]');
-        console.log("  repo-context-kit task from-doc <path> [--dry-run] [--json]");
-        console.log('  repo-context-kit task plan --goal "..." [--dry-run] [--json]');
         console.log("  repo-context-kit task prompt <taskId> [--deep] [--compact] [--full-detail] [--full-workset]");
         console.log("  repo-context-kit task checklist <taskId> [--deep]");
-        console.log("  repo-context-kit task pr <taskId> [--deep] [--cleanup]");
-        console.log("  repo-context-kit task pr <taskId> --create --confirm-create-pr [--repo owner/name] [--head branch]");
-        console.log("");
-        console.log("Compatibility:");
-        console.log("  task from-doc <path> forwards to task generate --from-doc <path>");
-        console.log('  task plan --goal "..." forwards to auto --goal "..."');
-        console.log("  task generate, task run, and task cleanup remain available.");
+        console.log("  repo-context-kit task pr <taskId> [--deep]");
+        return {
+            created: null,
+            output: null,
+        };
+    }
+
+    if (!["prompt", "checklist", "pr"].includes(String(subcommand ?? ""))) {
+        console.error("Unknown task command.");
+        console.log("Usage:");
+        console.log("  repo-context-kit task prompt <taskId> [--deep] [--compact] [--full-detail] [--full-workset]");
+        console.log("  repo-context-kit task checklist <taskId> [--deep]");
+        console.log("  repo-context-kit task pr <taskId> [--deep]");
+        process.exitCode = 1;
         return {
             created: null,
             output: null,
@@ -1797,16 +1721,14 @@ export async function runTask(args = []) {
 
     if (subcommand === "pr") {
         const taskId = args.slice(1).find((arg) => !arg.startsWith("--"));
-        const cleanup = args.includes("--cleanup");
-        const create = args.includes("--create");
-        const confirmCreate = args.includes("--confirm-create-pr");
-        const repoIndex = args.indexOf("--repo");
-        const headIndex = args.indexOf("--head");
-        const baseIndex = args.indexOf("--base");
-        const repoArg = repoIndex >= 0 ? args[repoIndex + 1] : null;
-        const headArg = headIndex >= 0 ? args[headIndex + 1] : null;
-        const baseArg = baseIndex >= 0 ? args[baseIndex + 1] : null;
-        const registry = parseTaskRegistry();
+        const removedFlags = ["--cleanup", "--create", "--confirm-create-pr", "--repo", "--head", "--base"];
+        const removedFlag = removedFlags.find((flag) => args.includes(flag));
+        if (removedFlag) {
+            console.error(`Unknown task pr option: ${removedFlag}`);
+            process.exitCode = 1;
+            return { output: null };
+        }
+        const registry = getPreferredTaskRegistry();
         const task = taskId && registry.exists ? findTaskById(registry, taskId) : null;
         const prOk = Boolean(taskId && registry.exists && task);
         if (!prOk) {
@@ -1826,104 +1748,14 @@ export async function runTask(args = []) {
 
         console.log(output.trimEnd());
 
-        if (create && prOk) {
-            if (!confirmCreate) {
-                console.error("");
-                console.error("Refusing to create a PR without explicit external side-effect confirmation.");
-                console.error("Retry with: --create --confirm-create-pr");
-                process.exitCode = 1;
-                return { output };
-            }
-            const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || getGitHubTokenFromUserConfig() || "";
-            if (!token) {
-                console.error("");
-                console.error("Missing GitHub token. Set GITHUB_TOKEN (or GH_TOKEN) or run: repo-context-kit github auth set --stdin");
-                process.exitCode = 1;
-                return { output };
-            }
-
-            let ownerRepo = null;
-            if (repoArg && !String(repoArg).startsWith("--")) {
-                const match = String(repoArg).trim().match(/^([^/]+)\/([^/]+)$/);
-                if (match) {
-                    ownerRepo = { owner: match[1], repo: match[2] };
-                }
-            } else {
-                ownerRepo = resolveGitHubRepoFromGitRemote(process.cwd());
-            }
-
-            const head =
-                headArg && !String(headArg).startsWith("--")
-                    ? String(headArg).trim()
-                    : resolveCurrentGitBranch(process.cwd());
-            const base = baseArg && !String(baseArg).startsWith("--") ? String(baseArg).trim() : "main";
-
-            if (!ownerRepo) {
-                console.error("");
-                console.error("Unable to determine GitHub repo. Provide --repo <owner/name> or configure git remote origin.");
-                process.exitCode = 1;
-                return { output };
-            }
-            if (!head) {
-                console.error("");
-                console.error("Unable to determine current git branch. Provide --head <branch>.");
-                process.exitCode = 1;
-                return { output };
-            }
-
-            const title = task ? `${task.id}: ${task.title}` : `Task ${taskId}`;
-            const created = await createPullRequest({
-                token,
-                owner: ownerRepo.owner,
-                repo: ownerRepo.repo,
-                title,
-                head,
-                base,
-                body: output.trimEnd(),
-            });
-
-            if (!created.ok) {
-                console.error("");
-                console.error(`Failed to create PR: ${created.error}`);
-                process.exitCode = 1;
-                return { output };
-            }
-
-            console.log("");
-            console.log(`Created PR: ${created.url}`);
-
-            if (cleanup) {
-                runTaskCleanup(taskId);
-            }
-        } else if (cleanup && prOk) {
-            runTaskCleanup(taskId);
-        }
-
         return {
             output,
         };
     }
 
-    if (subcommand === "cleanup") {
-        const taskId = args.slice(1).find((arg) => !arg.startsWith("--"));
-        const dryRun = args.includes("--dry-run");
-        if (!taskId) {
-            console.error("Task is not completed. Cleanup aborted.");
-            maybeAppendLearnableTaskEvent({
-                type: "task_failed",
-                ok: false,
-                command: "task cleanup",
-                reason: "missing_task_id",
-            });
-            process.exitCode = 1;
-            return { ok: false };
-        }
-        return runTaskCleanup(taskId, { dryRun });
-    }
-
     if (subcommand === "checklist") {
         const taskId = args.slice(1).find((arg) => !arg.startsWith("--"));
-        const registry = parseTaskRegistry();
+        const registry = getPreferredTaskRegistry();
         if (!taskId || !registry.exists || !findTaskById(registry, taskId)) {
             process.exitCode = 1;
         }
@@ -1948,7 +1780,7 @@ export async function runTask(args = []) {
 
     if (subcommand === "prompt") {
         const taskId = args.slice(1).find((arg) => !arg.startsWith("--"));
-        const registry = parseTaskRegistry();
+        const registry = getPreferredTaskRegistry();
         if (!taskId || !registry.exists || !findTaskById(registry, taskId)) {
             process.exitCode = 1;
         }
@@ -1975,391 +1807,8 @@ export async function runTask(args = []) {
         };
     }
 
-    if (subcommand === "from-doc") {
-        const [docPath, ...rest] = args.slice(1);
-        return runTask(["generate", "--from-doc", docPath, ...rest].filter(Boolean));
-    }
-
-    if (subcommand === "generate") {
-        const repoRoot = getRepoRoot();
-        const fromDoc = getArgValue(args, "--from-doc");
-        const dryRun = args.includes("--dry-run");
-        const json = args.includes("--json");
-        if (fromDoc) {
-            let doc = null;
-            let planning = null;
-            try {
-                doc = loadDesignDoc(fromDoc, { repoRoot });
-                planning = extractPlanningData(doc);
-            } catch (error) {
-                const message = error && typeof error === "object" && "message" in error ? String(error.message) : String(error);
-                process.exitCode = 1;
-                if (json) {
-                    console.log(serializeJson({ ok: false, error: message, extractedPlanning: null, generatedTasks: [], warnings: [] }));
-                    return { ok: false };
-                }
-                console.error(`ERROR ${message}`);
-                return { ok: false };
-            }
-
-            const warnings = planDocWarnings(doc, planning);
-            const seeds = buildDocTaskSeeds(doc, planning);
-            const registry = parseTaskRegistry();
-            const existingIds = new Set(registry.tasks.map((t) => String(t.id ?? "").toUpperCase()).filter(Boolean));
-            const created = [];
-            const updated = [];
-            const generatedTasks = [];
-            const taskNumberBase = Number.parseInt(getNextTaskNumber(), 10);
-            let nextNumber = Number.isFinite(taskNumberBase) ? taskNumberBase : 1;
-
-            if (!exists(TASK_REGISTRY_PATH)) {
-                created.push(TASK_REGISTRY_PATH);
-            } else {
-                updated.push(TASK_REGISTRY_PATH);
-            }
-
-            for (const seed of seeds) {
-                let taskId = "";
-                let filePath = "";
-                let attempts = 0;
-                while (attempts < 200) {
-                    const taskNumber = String(nextNumber).padStart(3, "0");
-                    nextNumber += 1;
-                    attempts += 1;
-                    taskId = `T-${taskNumber}`;
-                    if (existingIds.has(taskId)) continue;
-                    const slug = slugify(seed.title || "new-task");
-                    filePath = path.posix.join(TASK_DIR, `${taskId}-${slug}.md`);
-                    if (exists(filePath)) continue;
-                    break;
-                }
-                if (!taskId || !filePath) {
-                    warnings.push("Unable to allocate a new task id for one suggested task.");
-                    continue;
-                }
-
-                const testCommand = detectDefaultTestCommand();
-                const taskContent = buildTaskTemplate(taskId, seed.title, testCommand, {
-                    requirementItems: seed.requirementItems,
-                    acceptanceCriteriaItems: seed.acceptanceCriteriaItems,
-                    riskItems: [],
-                    testStrategyItems: [],
-                });
-
-                generatedTasks.push({
-                    id: taskId,
-                    title: seed.title,
-                    file: filePath,
-                    goal: seed.goal,
-                });
-
-                created.push(filePath);
-                existingIds.add(taskId);
-
-                if (!dryRun) {
-                    ensureTaskRegistry();
-                    writeText(filePath, taskContent);
-                    appendTaskToRegistry({
-                        id: taskId,
-                        title: seed.title,
-                        file: filePath,
-                    });
-                }
-            }
-
-            const refresh = !dryRun ? refreshTaskContextIfAvailable() : { updated: [], warnings: [] };
-            for (const filePath of refresh.updated) {
-                if (!updated.includes(filePath)) updated.push(filePath);
-            }
-            warnings.push(...(refresh.warnings ?? []));
-
-            if (dryRun && isDirectory(".aidw")) {
-                updated.push(CONTEXT_TASKS_PATH);
-            }
-
-            if (dryRun) {
-                const summary = renderFileMutationSummary("INFO Dry run: doc-driven task generation would make these changes", {
-                    created,
-                    updated: [...new Set(updated)].sort(stableStringCompare),
-                    warnings: warnings.sort(stableStringCompare),
-                });
-                if (json) {
-                    console.log(
-                        serializeJson({
-                            ok: true,
-                            extractedPlanning: {
-                                path: doc.path,
-                                title: doc.metadata?.title ?? null,
-                                goals: planning.goals,
-                                requirements: planning.requirements,
-                                scope: planning.scope,
-                                acceptanceCriteria: planning.acceptanceCriteria,
-                                constraints: planning.constraints,
-                                suggestedTasks: planning.suggestedTasks,
-                            },
-                            generatedTasks,
-                            warnings: warnings.sort(stableStringCompare),
-                            plannedWrites: { created, updated },
-                        }),
-                    );
-                    return { ok: true, dryRun: true, generatedTasks, extractedPlanning: planning, warnings };
-                }
-                console.log(summary);
-                return { ok: true, dryRun: true, generatedTasks, extractedPlanning: planning, warnings };
-            }
-
-            if (json) {
-                console.log(
-                    serializeJson({
-                        ok: true,
-                        extractedPlanning: {
-                            path: doc.path,
-                            title: doc.metadata?.title ?? null,
-                            goals: planning.goals,
-                            requirements: planning.requirements,
-                            scope: planning.scope,
-                            acceptanceCriteria: planning.acceptanceCriteria,
-                            constraints: planning.constraints,
-                            suggestedTasks: planning.suggestedTasks,
-                        },
-                        generatedTasks,
-                        warnings: warnings.sort(stableStringCompare),
-                    }),
-                );
-            } else {
-                const lines = [
-                    "# Doc-Driven Task Generation",
-                    "",
-                    `- doc: ${doc.path}`,
-                    `- tasks: ${generatedTasks.length}`,
-                    "",
-                    "Next:",
-                    "- Review generated task files under task/",
-                    "- Then run: repo-context-kit auto --goal \"<goal>\" (or auto --from-doc ...) to create a bounded plan and pause.",
-                ];
-                console.log(lines.join("\n").trimEnd());
-            }
-            return { ok: true, generatedTasks, extractedPlanning: planning, warnings };
-        }
-
-        const missing = [];
-        if (!exists(CONTEXT_SYSTEM_OVERVIEW_PATH)) {
-            missing.push(CONTEXT_SYSTEM_OVERVIEW_PATH);
-        }
-        if (!exists(HUMAN_PROJECT_BRIEF_PATH)) {
-            missing.push(HUMAN_PROJECT_BRIEF_PATH);
-        }
-        if (!exists(CONTEXT_PROJECT_MD_PATH)) {
-            missing.push(CONTEXT_PROJECT_MD_PATH);
-        }
-
-        if (missing.length > 0) {
-            console.error("ERROR Task generation scaffold requires project docs.");
-            console.error("Missing:");
-            for (const filePath of missing) {
-                console.error(`- ${filePath}`);
-            }
-            console.error("");
-            console.error("Next:");
-            console.error("- Run: repo-context-kit scan");
-            maybeAppendLearnableTaskEvent({
-                type: "task_failed",
-                ok: false,
-                command: "task generate",
-                reason: "missing_project_docs",
-                missing,
-            });
-            process.exitCode = 1;
-            return {
-                created: null,
-                output: null,
-            };
-        }
-
-        const output = [
-            "# Task Generation Scaffold",
-            "",
-            "This command does not auto-edit code.",
-            "",
-            "Inputs (default):",
-            `- ${HUMAN_PROJECT_BRIEF_PATH}`,
-            `- ${CONTEXT_SYSTEM_OVERVIEW_PATH}`,
-            `- ${CONTEXT_PROJECT_MD_PATH}`,
-            "- Your application document (PRD/spec/ADR) provided to your AI tool",
-            "",
-            "Outputs:",
-            "- task/T-*.md (one file per task)",
-            "- task/task.md (registry updated)",
-            "",
-            "Suggested next steps:",
-            '- Create tasks: repo-context-kit task new \"<task title>\"',
-            "- Fill each task with Goal / Scope / Acceptance Criteria / Test Command",
-            "- Then run: repo-context-kit task run",
-        ].join("\n");
-
-        console.log(output.trimEnd());
-        return {
-            output,
-        };
-    }
-
-    if (subcommand === "run") {
-        const registry = parseTaskRegistry();
-        if (!registry.exists) {
-            console.error("ERROR Task run scaffold requires the task registry.");
-            console.error("");
-            console.error("Next:");
-            console.error('- Create a task: repo-context-kit task new "Describe the change"');
-            maybeAppendLearnableTaskEvent({
-                type: "task_failed",
-                ok: false,
-                command: "task run",
-                reason: "missing_task_registry",
-            });
-            process.exitCode = 1;
-            return {
-                created: null,
-                output: null,
-            };
-        }
-
-        const runnable = registry.tasks.filter((task) =>
-            ["todo", "in_progress"].includes(task.status || "todo"),
-        );
-
-        const lines = [
-            "# Task Run Scaffold",
-            "",
-            "This command does not auto-edit code or run tests.",
-            "",
-            "Execution plan:",
-            "- Generate tasks from docs (if needed): repo-context-kit task generate",
-            "- Execute tasks sequentially",
-            "- For each task: implement -> run tests -> commit + push",
-            "- After all tasks: create one final PR",
-            "",
-            "Tasks (todo / in_progress):",
-            ...(runnable.length === 0
-                ? ["- (none)"]
-                : runnable.map((task) => `- ${task.id}: ${formatTaskTitle(task.title)}`)),
-        ];
-
-        const output = `${lines.join("\n")}\n`;
-        console.log(output.trimEnd());
-        return {
-            output,
-        };
-    }
-
-    if (subcommand !== "new") {
-        console.error("Unknown task command.");
-        console.log("Usage:");
-        console.log('  repo-context-kit task new "Task title" [--force] [--dry-run]');
-        console.log("  repo-context-kit task from-doc <path> [--dry-run] [--json]");
-        console.log("  repo-context-kit task generate [--from-doc <path>] [--dry-run] [--json]");
-        console.log("  repo-context-kit task run");
-        console.log("  repo-context-kit task checklist <taskId> [--deep]");
-        console.log("  repo-context-kit task pr <taskId> [--deep] [--cleanup]");
-        console.log("  repo-context-kit task cleanup <taskId> [--dry-run]");
-        console.log("  repo-context-kit task prompt <taskId> [--deep] [--compact] [--full-detail] [--full-workset]");
-        maybeAppendLearnableTaskEvent({
-            type: "task_failed",
-            ok: false,
-            command: `task ${String(subcommand ?? "").trim() || "-"}`,
-            reason: "unknown_subcommand",
-        });
-        process.exitCode = 1;
-        return {
-            created: null,
-            output: null,
-        };
-    }
-
-    const force = args.includes("--force");
-    const dryRun = args.includes("--dry-run");
-    const rawTitle = args
-        .filter((arg) => arg !== "--force" && arg !== "--dry-run")
-        .slice(1)
-        .join(" ")
-        .trim();
-    const slug = slugify(rawTitle || "new-task");
-    const taskNumber = getNextTaskNumber();
-    const taskId = `T-${taskNumber}`;
-    const title = rawTitle ? normalizeTitle(rawTitle) : toTitleCase(slug);
-    const filePath = path.posix.join(TASK_DIR, `${taskId}-${slug}.md`);
-
-    const loop = evaluateContextLoop({ requestedTitle: title });
-    if (loop.constraints.blockNewTask && !force) {
-        console.error("ERROR Task creation blocked by Context Loop constraints");
-        console.error(loop.constraints.blockReason || "Task creation is blocked.");
-        if (loop.mutations.suggestedFixTaskTitle) {
-            console.error("");
-            console.error("Suggested next step:");
-            console.error(`- Create a fix task: repo-context-kit task new "${loop.mutations.suggestedFixTaskTitle}"`);
-        }
-        console.error("");
-        console.error('Override: repo-context-kit task new "Title" --force');
-        maybeAppendLearnableTaskEvent({
-            type: "task_failed",
-            ok: false,
-            command: "task new",
-            reason: "blocked_by_loop_constraints",
-            evidence: [
-                loop.constraints.blockReason || "Task creation is blocked.",
-                loop.mutations.suggestedFixTaskTitle
-                    ? `suggested_fix_task: ${loop.mutations.suggestedFixTaskTitle}`
-                    : null,
-            ].filter(Boolean),
-        });
-        process.exitCode = 1;
-        return {
-            created: null,
-            output: null,
-        };
-    }
-
-    const created = [filePath];
-    const updated = exists(TASK_REGISTRY_PATH) ? [TASK_REGISTRY_PATH] : [];
-    if (!exists(TASK_REGISTRY_PATH)) {
-        created.push(TASK_REGISTRY_PATH);
-    }
-    if (isDirectory(".aidw")) {
-        updated.push(CONTEXT_TASKS_PATH);
-    }
-
-    if (dryRun) {
-        console.log(
-            renderFileMutationSummary("INFO Dry run: task creation would make these changes", {
-                created,
-                updated,
-            }),
-        );
-        return {
-            created: filePath,
-            dryRun: true,
-        };
-    }
-
-    ensureTaskRegistry();
-    writeText(filePath, buildTaskTemplate(taskId, title, detectDefaultTestCommand(), loop.mutations));
-    appendTaskToRegistry({
-        id: taskId,
-        title,
-        file: filePath,
-    });
-
-    const contextRefresh = refreshTaskContextIfAvailable();
-    const finalUpdated = [TASK_REGISTRY_PATH, ...contextRefresh.updated];
-
-    console.log(
-        renderFileMutationSummary("OK Task created", {
-            created: [filePath],
-            updated: finalUpdated,
-            warnings: contextRefresh.warnings,
-        }),
-    );
-
     return {
-        created: filePath,
+        created: null,
+        output: null,
     };
 }

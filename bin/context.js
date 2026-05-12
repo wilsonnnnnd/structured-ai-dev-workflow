@@ -16,6 +16,7 @@ import {
 import { exists, listDirSafe, readJson, readText } from "../src/scan/fs-utils.js";
 import { listTaskFiles } from "../src/scan/task-files.js";
 import { getRegistryStatusBreakdown, parseTaskRegistry, resolveTaskFilePath } from "../src/scan/task-registry.js";
+import { getPreferredTaskRegistry } from "../src/runtime/json-core.js";
 import { formatLoopEventsMarkdown, listRecentLoopEvents } from "../src/loop/store.js";
 import { evaluateContextLoop } from "../src/loop/analyze.js";
 import { resolveBudgetMode } from "../src/budget/policy.js";
@@ -629,7 +630,7 @@ function formatLoopDigest(options = {}) {
 
 function buildBrief(options = {}) {
     const warnings = [];
-    const registry = parseTaskRegistry();
+    const registry = getPreferredTaskRegistry();
     const project = readProjectContext();
     const summary = readJson(CONTEXT_INDEX_SUMMARY_PATH);
     const metadata = readPackageMetadata();
@@ -813,12 +814,12 @@ function buildTaskContext(task, registry, level, limits, warnings, options = {})
 
 function buildNextTask(options = {}) {
     const warnings = [];
-    const registry = parseTaskRegistry();
+    const registry = getPreferredTaskRegistry();
     warnings.push(...findTaskFileMismatchWarnings(registry));
     let digest = Boolean(options.digest);
 
     if (!registry.exists) {
-        return renderBounded(["# Next Work", "No task registry is available.", 'Create one: repo-context-kit task new "Describe the work"'], {
+        return renderBounded(["# Next Work", "No task registry is available.", "Provide task/task.md or run repository initialization before requesting task context."], {
             level: "next-task",
             taskId: null,
             includedSources: [],
@@ -835,8 +836,8 @@ function buildNextTask(options = {}) {
             "No ready task found.",
             "",
             "You can:",
-            '- Create one: repo-context-kit task new "Describe the work"',
-            "- Generate from a doc: repo-context-kit task from-doc docs/spec.md",
+            "- Provide task/task.md or task/T-*.md files.",
+            "- Run repo-context-kit scan after task files exist.",
         ], {
             level: "next-task",
             taskId: null,
@@ -900,7 +901,7 @@ function buildNextTask(options = {}) {
         "",
         "Next:",
         `- Generate AI prompt: repo-context-kit task prompt ${task.id}`,
-        `- View focused context: repo-context-kit context for ${task.id}`,
+        `- View focused context: repo-context-kit context workset ${task.id}`,
     ].join("\n"));
 
     return renderBounded(taskContext.parts, {
@@ -938,7 +939,7 @@ function selectDigestSymbols(symbols = [], maxTotal = 8) {
 }
 
 function buildWorksetDigest(taskRef, warnings = [], options = {}) {
-    const registry = parseTaskRegistry();
+    const registry = getPreferredTaskRegistry();
     warnings.push(...findTaskFileMismatchWarnings(registry));
     const taskId = typeof taskRef === "string" ? taskRef : null;
     const providedTask = taskRef && typeof taskRef === "object" ? taskRef : null;
@@ -1123,7 +1124,7 @@ function buildWorkset(taskRef, options = {}) {
     const level = deep ? "workset --deep" : "workset";
     const limits = deep ? LIMITS["workset-deep"] : LIMITS.workset;
     const warnings = [];
-    const registry = parseTaskRegistry();
+    const registry = getPreferredTaskRegistry();
     warnings.push(...findTaskFileMismatchWarnings(registry));
 
     if (!taskId && !providedTask) {
@@ -1250,76 +1251,16 @@ export async function runContext(args = []) {
     if (subcommand === "help" || args.includes("--help")) {
         console.log("Usage:");
         console.log("  repo-context-kit context brief");
-        console.log("  repo-context-kit context trace <taskId>");
-        console.log("  repo-context-kit context budget");
-        console.log("  repo-context-kit context next");
-        console.log("  repo-context-kit context doctor [--json]");
-        console.log("  repo-context-kit context for <taskId> [--compact|--digest] [--deep]");
-        console.log("");
-        console.log("Compatibility:");
-        console.log("  context next forwards to context next-task");
-        console.log("  context for <taskId> forwards to context workset <taskId>");
-        console.log("  context next-task and context workset remain available.");
+        console.log("  repo-context-kit context next-task");
+        console.log("  repo-context-kit context workset <taskId> [--compact|--digest] [--deep]");
         console.log("");
         console.log("Options:");
         console.log("  --compact    Prefer bounded digest output (same as default)");
         console.log("  --full       Disable digest output");
         console.log("  --manifest   Include full context manifest footer");
         console.log("  --verbose    Print all warnings instead of summarizing");
-        console.log("  --budget     Budget policy: off | auto | full (also via REPO_CONTEXT_KIT_BUDGET)");
-        console.log("  --json       For doctor: output JSON instead of text");
         return {
             output: null,
-        };
-    }
-
-    if (subcommand === "doctor") {
-        const { analyzeContextHealth, formatContextDoctorCompact, formatContextDoctorJson } = await import(
-            "../src/runtime/context-doctor.js"
-        );
-        const analysis = analyzeContextHealth();
-        const drift = detectContextDrift();
-        const payload = {
-            ...analysis,
-            context_drift: drift,
-        };
-        const format = args.includes("--json") ? "json" : "text";
-        const result = format === "json"
-            ? formatCompactJson(payload)
-            : `${formatContextDoctorCompact(analysis)}\n\n# Context Drift\n${drift.length === 0 ? "- healthy" : drift.map((item) => `- ${item.severity} ${item.file}: ${item.issue} -> ${item.recommendation}`).join("\n")}`;
-        console.log(result);
-        return {
-            output: result,
-        };
-    }
-
-    if (subcommand === "trace") {
-        const traceIndex = args.indexOf("trace");
-        const taskId = args.slice(traceIndex + 1).find((arg) => !arg.startsWith("--"));
-        if (!taskId) {
-            process.exitCode = 1;
-            const usage = "Usage: repo-context-kit context trace <taskId>";
-            console.error(usage);
-            return {
-                output: usage,
-            };
-        }
-        const payload = {
-            ...buildContextTrace(taskId, { maxSelected: 12, maxExcluded: 12 }),
-            volatility_plan: buildVolatilityPlan(taskId),
-        };
-        const result = formatCompactJson(payload);
-        console.log(result);
-        return {
-            output: result,
-        };
-    }
-
-    if (subcommand === "budget") {
-        const result = formatCompactJson(buildContextBudget());
-        console.log(result);
-        return {
-            output: result,
         };
     }
 
@@ -1379,7 +1320,7 @@ export async function runContext(args = []) {
                 writeBriefDigestCache(output);
             }
         }
-    } else if (subcommand === "next-task" || subcommand === "next") {
+    } else if (subcommand === "next-task") {
         output = buildNextTask({
             digest,
             manifest,
@@ -1388,13 +1329,13 @@ export async function runContext(args = []) {
             budget,
             digestLocked: digestFlag || full,
         });
-    } else if (subcommand === "workset" || subcommand === "for") {
+    } else if (subcommand === "workset") {
         const worksetIndex = args.indexOf(subcommand);
         const taskId = args.slice(worksetIndex + 1).find((arg) => !arg.startsWith("--"));
         if (!taskId) {
             process.exitCode = 1;
         } else {
-            const registry = parseTaskRegistry();
+            const registry = getPreferredTaskRegistry();
             if (!registry.exists || !taskById(registry, taskId)) {
                 process.exitCode = 1;
             }
@@ -1413,10 +1354,6 @@ export async function runContext(args = []) {
         console.error("Unknown context command.");
         console.log("Usage:");
         console.log("  repo-context-kit context brief");
-        console.log("  repo-context-kit context trace <taskId>");
-        console.log("  repo-context-kit context budget");
-        console.log("  repo-context-kit context next");
-        console.log("  repo-context-kit context for <taskId> [--compact|--digest] [--deep]");
         console.log("  repo-context-kit context next-task");
         console.log("  repo-context-kit context workset <taskId> [--compact|--digest] [--deep]");
         console.log("Options:");
@@ -1424,9 +1361,7 @@ export async function runContext(args = []) {
         console.log("  --full       Disable digest output");
         console.log("  --manifest   Include full context manifest footer");
         console.log("  --verbose    Print all warnings instead of summarizing");
-        console.log("  --raw-loop   Include raw recent loop events in addition to digest");
         console.log("  --summary-json  Print scan summary as JSON (brief only)");
-        console.log("  --budget     Budget policy: off | auto | full (also via REPO_CONTEXT_KIT_BUDGET)");
         console.log("  --no-cache   Disable brief digest cache");
         process.exitCode = 1;
         return {

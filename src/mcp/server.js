@@ -6,6 +6,7 @@ export function createMcpServer({
     enableWrite = false,
     enableTests = false,
     enableExternalSideEffects = false,
+    runCli,
     version = "0.0.0",
 } = {}) {
     const tools = buildMcpTools({
@@ -13,6 +14,7 @@ export function createMcpServer({
         enableWrite,
         enableTests,
         enableExternalSideEffects,
+        runCli,
     });
     let initialized = false;
 

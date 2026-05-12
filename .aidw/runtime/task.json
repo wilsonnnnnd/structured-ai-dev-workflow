@@ -1,0 +1,60 @@
+{
+    "generatedAt": "2026-05-12T12:54:24.120Z",
+    "kind": "task",
+    "payload": {
+        "registryPath": "task/task.md",
+        "tasks": [
+            {
+                "dependencies": [
+                    "-"
+                ],
+                "file": "task/T-001-governance-boundary-hardening.md",
+                "hasAcceptanceCriteria": true,
+                "hasDefinitionOfDone": true,
+                "hasTestCommand": true,
+                "id": "T-001",
+                "owner": "-",
+                "priority": "high",
+                "status": "done",
+                "title": "Governance boundary hardening"
+            },
+            {
+                "dependencies": [
+                    "T-001"
+                ],
+                "file": "task/T-002-workflow-consolidation.md",
+                "hasAcceptanceCriteria": true,
+                "hasDefinitionOfDone": true,
+                "hasTestCommand": true,
+                "id": "T-002",
+                "owner": "-",
+                "priority": "high",
+                "status": "in_progress",
+                "title": "Workflow consolidation"
+            },
+            {
+                "dependencies": [
+                    "T-002"
+                ],
+                "file": "task/T-003-deterministic-scan-cleanup.md",
+                "hasAcceptanceCriteria": true,
+                "hasDefinitionOfDone": true,
+                "hasTestCommand": true,
+                "id": "T-003",
+                "owner": "-",
+                "priority": "medium",
+                "status": "todo",
+                "title": "Deterministic scan cleanup"
+            }
+        ]
+    },
+    "schemaVersion": "runtime/v1",
+    "source": {
+        "generatedBy": "repo-context-kit scan",
+        "inputs": [
+            "task/task.md",
+            "task/*.md",
+            ".aidw/context/tasks.json"
+        ]
+    }
+}

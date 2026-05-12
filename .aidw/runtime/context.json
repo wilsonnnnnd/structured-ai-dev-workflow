@@ -1,0 +1,453 @@
+{
+    "generatedAt": "2026-05-12T12:54:24.120Z",
+    "kind": "context",
+    "payload": {
+        "entrypoints": [
+            {
+                "name": "CLI entry",
+                "path": "bin/cli.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/mcp.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/_cli-utils.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/check.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/context.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/gate.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/init.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/metrics.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/scan.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/task.js"
+            }
+        ],
+        "fileGroups": [
+            {
+                "description": "",
+                "label": "bin"
+            },
+            {
+                "description": "",
+                "label": "."
+            },
+            {
+                "description": "",
+                "label": "src/scan"
+            },
+            {
+                "description": "",
+                "label": "src/runtime"
+            },
+            {
+                "description": "",
+                "label": "src/mcp"
+            },
+            {
+                "description": "",
+                "label": "src/loop"
+            },
+            {
+                "description": "",
+                "label": "src/budget"
+            },
+            {
+                "description": "",
+                "label": "src/gate"
+            },
+            {
+                "description": "",
+                "label": "src/docs"
+            },
+            {
+                "description": "",
+                "label": "src/lessons"
+            },
+            {
+                "description": "",
+                "label": "src/task"
+            },
+            {
+                "description": "",
+                "label": "test"
+            },
+            {
+                "description": "",
+                "label": "tools"
+            },
+            {
+                "description": "",
+                "label": "test-ui-detect"
+            }
+        ],
+        "index": {
+            "fileGroups": 14,
+            "indexedFiles": 63,
+            "indexedSymbols": 473,
+            "truncated": false
+        },
+        "projectType": "cli-tool",
+        "riskAreas": [
+            "CLI entrypoints in bin/ can break command execution if moved or renamed",
+            "package.json bin/files/version changes affect installation and publish behavior",
+            "template/ changes affect every generated target project",
+            "skill.md and .aidw/rules.md changes affect controller behavior and workflow boundaries",
+            ".aidw/tests/ changes can invalidate regression expectations and evaluation consistency"
+        ],
+        "techStack": [
+            "npm package",
+            "Node.js CLI",
+            "ESM",
+            "JavaScript"
+        ],
+        "topFiles": [
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "AGENTS.md",
+                "type": "other"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "bin/_cli-utils.js",
+                "type": "entry"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "bin/check.js",
+                "type": "entry"
+            },
+            {
+                "description": "CLI entry point that parses commands and flags.",
+                "path": "bin/cli.js",
+                "type": "entry"
+            },
+            {
+                "description": "Validates .aidw project context files.",
+                "path": "bin/context.js",
+                "type": "entry"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "bin/gate.js",
+                "type": "entry"
+            },
+            {
+                "description": "Initializes the repo-context-kit project context.",
+                "path": "bin/init.js",
+                "type": "entry"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "bin/mcp.js",
+                "type": "entry"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "bin/metrics.js",
+                "type": "entry"
+            },
+            {
+                "description": "CLI wrapper for the project scan command.",
+                "path": "bin/scan.js",
+                "type": "entry"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "bin/task.js",
+                "type": "entry"
+            },
+            {
+                "description": "Package metadata, scripts, and CLI binary configuration.",
+                "path": "package.json",
+                "type": "config"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "README.md",
+                "type": "other"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/budget/decision.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/budget/policy.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/docs/doc-extractor.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/gate/run-test.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/gate/state.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/lessons/store.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/loop/analyze.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/loop/context-cache.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/loop/store.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/mcp/errors.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/mcp/server.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/mcp/spawn-cli.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/mcp/stdio.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/mcp/tools.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/context-brief.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/context-compression.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/context-observability.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/context-relevance.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/deprecations.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/json-core.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/rdl/pdgl.js",
+                "type": "source"
+            },
+            {
+                "description": "Validates .aidw project context files.",
+                "path": "src/runtime/root-context.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/runtime-schema.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/runtime-version.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/serialize.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/stable-sort.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/scan/constants.js",
+                "type": "source"
+            },
+            {
+                "description": "Validates .aidw project context files.",
+                "path": "src/scan/context.js",
+                "type": "source"
+            },
+            {
+                "description": "Detects project signals used by scan output.",
+                "path": "src/scan/detectors/entry-points.js",
+                "type": "source"
+            },
+            {
+                "description": "Detects project signals used by scan output.",
+                "path": "src/scan/detectors/overview.js",
+                "type": "source"
+            },
+            {
+                "description": "Detects project signals used by scan output.",
+                "path": "src/scan/detectors/project-type.js",
+                "type": "source"
+            },
+            {
+                "description": "Detects project signals used by scan output.",
+                "path": "src/scan/detectors/reusable-system.js",
+                "type": "source"
+            },
+            {
+                "description": "Detects project signals used by scan output.",
+                "path": "src/scan/detectors/risk-areas.js",
+                "type": "source"
+            },
+            {
+                "description": "Detects project signals used by scan output.",
+                "path": "src/scan/detectors/structure.js",
+                "type": "source"
+            },
+            {
+                "description": "Detects project signals used by scan output.",
+                "path": "src/scan/detectors/ui-system.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/scan/fs-utils.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/scan/index.js",
+                "type": "source"
+            },
+            {
+                "description": "Generates structured AI retrieval indexes.",
+                "path": "src/scan/indexers/project-index.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/scan/package-utils.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/scan/python-utils.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/scan/system-overview.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/scan/task-files.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/scan/task-registry.js",
+                "type": "source"
+            },
+            {
+                "description": "Writes generated project context files.",
+                "path": "src/scan/writers/project-md.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/task/virtual-task.js",
+                "type": "source"
+            },
+            {
+                "description": "Project configuration file.",
+                "path": "test-ui-detect/package.json",
+                "type": "config"
+            },
+            {
+                "description": "Automated test coverage for CLI behavior.",
+                "path": "test/cli.test.js",
+                "type": "test"
+            },
+            {
+                "description": "Automated test coverage for CLI behavior.",
+                "path": "test/helpers.js",
+                "type": "test"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "tools/vscode-confirmation-gate/extension.js",
+                "type": "other"
+            },
+            {
+                "description": "Project configuration file.",
+                "path": "tools/vscode-confirmation-gate/package.json",
+                "type": "config"
+            }
+        ]
+    },
+    "schemaVersion": "runtime/v1",
+    "source": {
+        "generatedBy": "repo-context-kit scan",
+        "inputs": [
+            ".aidw/index/summary.json",
+            ".aidw/index/files.json",
+            ".aidw/index/entrypoints.json",
+            ".aidw/index/file-groups.json"
+        ]
+    }
+}
