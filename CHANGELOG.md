@@ -1,5 +1,11 @@
 # repo-context-kit
 
+## 1.8.1
+
+### Patch Changes
+
+- fb86ab4: Rename commands and binaries from 'repo-context-kit' to 'rck' for consistency
+
 ## 1.8.0
 
 ### Minor Changes
