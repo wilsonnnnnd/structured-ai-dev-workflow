@@ -1,5 +1,11 @@
 # repo-context-kit
 
+## 1.8.2
+
+### Patch Changes
+
+- 4c135ad: Add --update-agent-files option to init command for agent file management
+
 ## 1.8.1
 
 ### Patch Changes
