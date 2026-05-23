@@ -1,141 +1,99 @@
 # AI Execution Confirmation Protocol (v1)
 
-## TL;DR / Quick Reference
+The protocol is still enforced internally. Default external output is compact.
 
-- Primary flow: `INTAKE` → `CLASSIFY` → (`CLARIFY`)? → `TASK_DRAFT` → `TASK_CONFIRM` → `IMPLEMENT` → `TESTS_CONFIRM` → (`RUN_TESTS`)? → `AC_REPORT` → `DONE`
-- Hard gates:
-  - Before `TASK_CONFIRM`: do not edit files; do not run commands.
-  - Before `TESTS_CONFIRM`: do not run commands.
-- Review mode: review against Task/AC; if Task/AC is missing, draft minimal Task/AC first.
-- Host fallback: if buttons are unavailable, confirm via numbered options / fixed phrases.
-- Presentation rule: protocol is enforced internally, but compact output is the default external presentation.
+## Flow
 
----
+`INTAKE` -> `CLASSIFY` -> (`CLARIFY`)? -> `TASK_DRAFT` -> `TASK_CONFIRM` -> `IMPLEMENT` -> `TESTS_CONFIRM` -> (`RUN_TESTS`)? -> `AC_REPORT` -> `DONE`
 
-## Global Constraints (Gating Rules)
+## Hard Gates
 
-1. Before `TASK_CONFIRM`:
-   - Do not modify any code files.
-   - Do not run any commands (including tests).
-2. Before `TESTS_CONFIRM`:
-   - Do not run any commands (including test commands).
-3. Review requests:
-   - Review against Task/AC; if Task/AC is missing, draft the minimal Task/AC first, then review against it.
-4. If information is insufficient at any stage:
-   - Transition to `CLARIFY` and ask only implementation-boundary questions; after clarification, return to `TASK_DRAFT`.
+1. Before `TASK_CONFIRM`: do not modify files and do not run commands.
+2. Before `TESTS_CONFIRM`: do not run commands, including tests.
+3. Review mode: review against Task/AC; if missing, draft minimal Task/AC first.
+4. If information is insufficient, ask focused boundary questions and stop.
 
----
+## Output Model
 
-## Presentation Modes
+Human-facing labels and explanations should follow the user's dominant language. Machine-facing fields stay English and deterministic: commands, paths, schema names, protocol identifiers, MCP/tool names, runtime names, state names, enums, CLI flags, JSON keys, task ids, and gate field names.
 
-Governance state and gates are runtime facts. They do not need to be fully rendered in every chat response.
+### 1. Compact Mode (Default)
 
-```yaml
-presentation:
-  default_mode: compact
-  modes:
-    compact: short conversational status
-    standard: concise task/confirmation text
-    audit: full protocol blocks and evidence
-    machine: fixed structured state for integrations
-  auto_expand_on:
-    - scope_change
-    - unresolved_scope
-    - confirmation_required
-    - destructive_action
-    - write_or_external_side_effect
-    - test_execution
-    - unresolved_risk
-    - user_request
-```
-
-### Compact Output Mode (Default)
-
-Use compact output for normal progress and completion:
+Use for normal read-only work, low-risk status, routine summaries, and final reports.
 
 ```md
-State: IMPLEMENT
-Changed: auth middleware + task registry
-Tests: pending
-Risk: low
+State: REVIEW
+
+Goal:
+Code health review (read-only)
+
+Scope:
+* bin
+* src
+* test
+
+Checks:
+* architecture
+* CLI behavior
+* testing gaps
+
+Tests:
+Not run
+
+Need:
+Confirm / Adjust / Cancel
 ```
 
-Final reports should usually be:
+Rules:
+- Do not render `## State`, protocol name, gating booleans, DoD, AC, background, or risk unless they are needed.
+- Keep wording human-readable and short.
+- Prefer `State`, `Goal`, `Scope`, `Checks`, `Changed`, `Tests`, `Risk`, `Need`, `Note`.
+- For Chinese users, labels may be bilingual, such as `目标 Goal`, while values like `REVIEW`, `npm test`, and `confirmation-protocol/v1` remain English.
+- Final reports usually use `Done`, `Tests`, `Note`.
+- Default reports should use `Example`, not `Before/After`. Show comparison only for explicit verbose/audit/protocol/debug mode, explicit compare/diff requests, or major breaking UX changes.
+
+### 2. Smart Protocol Mode (Hard Boundary)
+
+Use when the user must approve a boundary: file writes, test/command execution, destructive action, external side effect, meaningful risk, unresolved scope, or scope change.
 
 ```md
-Done: Added task PR generator.
-Tests: npm test passed.
-Note: No unrelated files changed.
+Need confirmation
+
+Files:
+* src/task.js
+* test/cli.test.js
+
+Reason:
+Source file modifications required.
+
+Commands:
+* npm test
+
+Need:
+Confirm / Adjust / Cancel
 ```
 
-Compact mode should avoid:
+Rules:
+- Show only the relevant gate, files, commands, reason, and meaningful risk.
+- Do not render full state-machine metadata.
+- Keep confirmation choices explicit.
 
-- Repeated `## State`, `## Output`, `## Confirm` blocks.
-- Large YAML-like state dumps.
-- Repeating stable/safe facts unless relevant.
-- Full file lists unless many files changed, the user asks, or audit/review mode is active.
-- Detailed test logs unless tests fail or debug mode is requested.
+### 3. Full Audit Mode (Explicit)
 
-### Full Protocol Rendering
+Use only when the user asks for audit/debug/protocol detail, or when a host integration requires fixed protocol blocks.
 
-Render the full structured protocol only when a hard boundary is visible to the user:
+Triggers:
+- `--audit`, `--protocol`, `--verbose`, debug mode, or explicit user request.
+- Machine-readable protocol transcript requirements.
 
-- Task scope is unresolved.
-- User confirmation is required.
-- Tests are about to run.
-- A destructive, write, or external side-effect action needs approval.
-- High-risk operations or unresolved risks exist.
-- Scope changes during execution.
-- The user requests audit, debug, review, or machine-readable detail.
+Only Full Audit Mode renders:
+- `## State`
+- `protocol: confirmation-protocol/v1`
+- `state`, `mode`, `gating`, `next`
+- full task draft including Background, Requirements, Risk, Test Strategy, AC, Test Command, DoD
+- full acceptance report details
 
----
-
-## State Machine Nodes
-
-### State Enum
-
-- `INTAKE`: receive request
-- `CLASSIFY`: decide review vs implementation
-- `CLARIFY`: clarify (questions only, no implementation)
-- `TASK_DRAFT`: generate a task draft
-- `TASK_CONFIRM`: confirm the task draft
-- `IMPLEMENT`: implement (follow Scope/Requirements)
-- `TESTS_CONFIRM`: confirm running tests
-- `RUN_TESTS`: run the test command
-- `AC_REPORT`: produce an acceptance report against AC
-- `DONE`: end
-
-### Transitions (High-Level)
-
-- `INTAKE` → `CLASSIFY`
-- `CLASSIFY`:
-  - review: `TASK_DRAFT` (if no Task/AC) → `TASK_CONFIRM` → `AC_REPORT`
-  - implement: `CLARIFY` (if unclear) or `TASK_DRAFT`
-- `TASK_DRAFT` → `TASK_CONFIRM`
-- `TASK_CONFIRM`:
-  - approved: `IMPLEMENT`
-  - adjust: `CLARIFY` or `TASK_DRAFT`
-- `IMPLEMENT` → `TESTS_CONFIRM`
-- `TESTS_CONFIRM`:
-  - run: `RUN_TESTS` → `AC_REPORT`
-  - skip: `AC_REPORT` (must include a reason category for skipping tests)
-- `AC_REPORT` → `DONE`
-
----
-
-## Full Protocol Output Format (Escalation Only)
-
-Use the full format only for confirmation, audit, debug, review, machine-readable integration, or other escalation triggers.
-
-When full protocol rendering is required, output these three sections with fixed headings:
-
-1) `## State`: machine-readable protocol state
-2) `## Output`: user-facing content (task draft, questions, acceptance report, etc.)
-3) `## Confirm`: options for click/selection; if no confirmation is needed, write `- None`
-
-### State Section Format (Fixed Fields)
-
-Use the following format (field order is fixed):
+## Full Audit Format
 
 ```md
 ## State
@@ -146,313 +104,29 @@ Use the following format (field order is fixed):
   - allow_file_edits: <true|false>
   - allow_commands: <true|false>
 - next: <NEXT_STATE>
-```
-
----
-
-## Node Specifications (Per Node)
-
-### 1) INTAKE
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: INTAKE
-- mode: IMPLEMENT
-- gating:
-  - allow_file_edits: false
-  - allow_commands: false
-- next: CLASSIFY
 
 ## Output
-- Request summary: <one-line summary of the request>
+<full protocol/audit content>
 
 ## Confirm
-- None
+<options or None>
 ```
 
-### 2) CLASSIFY
+## State Machine
 
-Fixed output template:
+- `INTAKE`: receive request
+- `CLASSIFY`: decide review vs implementation
+- `CLARIFY`: ask boundary questions
+- `TASK_DRAFT`: create task framing
+- `TASK_CONFIRM`: wait for task approval
+- `IMPLEMENT`: perform approved edits
+- `TESTS_CONFIRM`: wait for test approval
+- `RUN_TESTS`: run approved test command
+- `AC_REPORT`: report against acceptance criteria
+- `DONE`: finish
 
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: CLASSIFY
-- mode: <IMPLEMENT | REVIEW>
-- gating:
-  - allow_file_edits: false
-  - allow_commands: false
-- next: <CLARIFY | TASK_DRAFT>
+## Host Compatibility
 
-## Output
-- Classification: <IMPLEMENT|REVIEW> (reason: <one-line reason>)
-
-## Confirm
-- None
-```
-
-### 3) CLARIFY
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: CLARIFY
-- mode: <IMPLEMENT | REVIEW>
-- gating:
-  - allow_file_edits: false
-  - allow_commands: false
-- next: TASK_DRAFT
-
-## Output
-- Questions:
-  - Q1: <question>
-  - Q2: <question>
-  - Q3: <question>
-
-## Confirm
-- Options:
-  - 1) <option>
-  - 2) <option>
-  - 3) <option>
-  - 4) <option>
-```
-
-### 4) TASK_DRAFT
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: TASK_DRAFT
-- mode: <IMPLEMENT | REVIEW>
-- gating:
-  - allow_file_edits: false
-  - allow_commands: false
-- next: TASK_CONFIRM
-
-## Output
-### Task Draft
-#### Goal
-<...>
-
-#### Background
-<...>
-
-#### Scope
-Allowed to change:
-- <...>
-
-Do not change:
-- <...>
-
-#### Requirements
-- <...>
-
-#### Risk
-- <...>
-
-#### Test Strategy
-- <...>
-
-#### Acceptance Criteria
-- <...>
-
-#### Test Command
-```bash
-<...>
-```
-
-#### Definition of Done
-- Code implemented.
-- Tests added or updated.
-- Test command passes.
-- Summary includes changed files and verification.
-
-## Confirm
-- Choose one:
-  - Confirm task (proceed)
-  - Adjust task (go to clarify)
-  - Switch to review mode
-  - Cancel
-```
-
-### 5) TASK_CONFIRM
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: TASK_CONFIRM
-- mode: <IMPLEMENT | REVIEW>
-- gating:
-  - allow_file_edits: false
-  - allow_commands: false
-- next: <IMPLEMENT | CLARIFY | AC_REPORT | DONE>
-
-## Output
-- Awaiting confirmation for the task draft.
-
-## Confirm
-- Choose one:
-  - Confirm task (proceed)
-  - Adjust task (go to clarify)
-  - Switch to review mode
-  - Cancel
-```
-
-### 6) IMPLEMENT
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: IMPLEMENT
-- mode: IMPLEMENT
-- gating:
-  - allow_file_edits: true
-  - allow_commands: false
-- next: TESTS_CONFIRM
-
-## Output
-- Implementation summary:
-  - Files changed:
-    - <path>
-  - Key decisions:
-    - <...>
-  - Anything not implemented:
-    - <None|...>
-
-## Confirm
-- Choose one:
-  - Confirm tests (run test command)
-  - Skip tests (report without running)
-  - Adjust task (back to clarify)
-```
-
-### 7) TESTS_CONFIRM
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: TESTS_CONFIRM
-- mode: IMPLEMENT
-- gating:
-  - allow_file_edits: true
-  - allow_commands: false
-- next: <RUN_TESTS | AC_REPORT | CLARIFY>
-
-## Output
-- Proposed test command:
-  - <command>
-
-## Confirm
-- Choose one:
-  - Run tests
-  - Skip tests (reason: no_tests_available)
-  - Skip tests (reason: too_expensive_now)
-  - Adjust task (back to clarify)
-```
-
-### 8) RUN_TESTS
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: RUN_TESTS
-- mode: IMPLEMENT
-- gating:
-  - allow_file_edits: true
-  - allow_commands: true
-- next: AC_REPORT
-
-## Output
-- Test result:
-  - command: <...>
-  - exit_code: <...>
-  - summary: <pass|fail>
-
-## Confirm
-- None
-```
-
-### 9) AC_REPORT
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: AC_REPORT
-- mode: <IMPLEMENT | REVIEW>
-- gating:
-  - allow_file_edits: <true|false>
-  - allow_commands: <true|false>
-- next: DONE
-
-## Output
-### Acceptance Report
-
-#### Acceptance Criteria
-- AC1: <text>
-  - status: <PASS|FAIL|N/A>
-  - evidence:
-    - <tests|manual|notes>: <...>
-
-- AC2: <text>
-  - status: <PASS|FAIL|N/A>
-  - evidence:
-    - <...>
-
-#### Files Changed
-- <path>
-
-#### Tests Run
-- <command or "skipped">
-
-#### Remaining Risks
-- <...>
-
-## Confirm
-- None
-```
-
-### 10) DONE
-
-Fixed output template:
-
-```md
-## State
-- protocol: confirmation-protocol/v1
-- state: DONE
-- mode: <IMPLEMENT | REVIEW>
-- gating:
-  - allow_file_edits: false
-  - allow_commands: false
-- next: NONE
-
-## Output
-- Done.
-
-## Confirm
-- None
-```
-
----
-
-## Host Compatibility Notes (Trae / Copilot / Codex)
-
-- Trae: render `## Confirm` options as buttons; treat “run command / write files” as controlled actions triggered only after the relevant confirmation.
-- Copilot Chat: if buttons are unavailable, use `1/2/3/4` for confirmation; do not output code-changing instructions before the user confirms.
-- Codex: same numbered confirmation; if tool/command execution is available, it must respect gating (only execute when `allow_commands` is true).
+- Hosts may render Smart Protocol `Need` lines as buttons.
+- If buttons are unavailable, use fixed phrases: `Confirm`, `Adjust`, `Cancel`, `Run tests`, `Skip tests`.
+- Codex and CLI tools must still honor gate state; compact presentation never weakens execution gates.

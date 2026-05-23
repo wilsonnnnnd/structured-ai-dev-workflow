@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-05-12T12:54:24.120Z",
+    "generatedAt": "2026-05-23T12:46:52.280Z",
     "kind": "context",
     "payload": {
         "entrypoints": [
@@ -104,9 +104,9 @@
         ],
         "index": {
             "fileGroups": 14,
-            "indexedFiles": 63,
-            "indexedSymbols": 473,
-            "truncated": false
+            "indexedFiles": 65,
+            "indexedSymbols": 500,
+            "truncated": true
         },
         "projectType": "cli-tool",
         "riskAreas": [
@@ -265,6 +265,11 @@
             },
             {
                 "description": "Source module used by project scanning.",
+                "path": "src/runtime/context-budget.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
                 "path": "src/runtime/context-compression.js",
                 "type": "source"
             },
@@ -286,6 +291,11 @@
             {
                 "description": "Source module used by project scanning.",
                 "path": "src/runtime/json-core.js",
+                "type": "source"
+            },
+            {
+                "description": "Source module used by project scanning.",
+                "path": "src/runtime/output-presentation.js",
                 "type": "source"
             },
             {

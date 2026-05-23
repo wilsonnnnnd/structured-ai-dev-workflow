@@ -31,12 +31,12 @@
     },
     {
         "path": "src/runtime",
-        "fileCount": 12,
+        "fileCount": 14,
         "summary": "Source modules for application behavior.",
         "keyFiles": [
             "src/runtime/context-brief.js",
-            "src/runtime/context-compression.js",
-            "src/runtime/context-observability.js"
+            "src/runtime/context-budget.js",
+            "src/runtime/context-compression.js"
         ]
     },
     {

@@ -20,7 +20,7 @@ The repository is packaged for npm distribution.
 
 ## Package Metadata
 - name: repo-context-kit
-- version: 1.6.2
+- version: 1.7.3
 - module type: module
 - license: MIT
 - bin:

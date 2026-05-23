@@ -83,6 +83,38 @@ function requireEvidence(value) {
     return value;
 }
 
+function requireHumanConfirmation(value, action) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        const error = new Error("humanConfirmation is required (object)");
+        error.code = "MISSING_HUMAN_CONFIRMATION";
+        throw error;
+    }
+    if (value.confirmed !== true) {
+        const error = new Error("humanConfirmation.confirmed must be true");
+        error.code = "HUMAN_CONFIRMATION_NOT_CONFIRMED";
+        throw error;
+    }
+    const source = String(value.source ?? "").trim();
+    const summary = String(value.summary ?? "").trim();
+    if (!source || !summary) {
+        const error = new Error("humanConfirmation.source and humanConfirmation.summary are required");
+        error.code = "HUMAN_CONFIRMATION_INCOMPLETE";
+        throw error;
+    }
+    const normalizedAction = String(value.action ?? action ?? "").trim();
+    if (normalizedAction !== action) {
+        const error = new Error(`humanConfirmation.action must be ${action}`);
+        error.code = "HUMAN_CONFIRMATION_ACTION_MISMATCH";
+        throw error;
+    }
+    if (JSON.stringify(value).length > 4_000) {
+        const error = new Error("humanConfirmation is too large");
+        error.code = "HUMAN_CONFIRMATION_TOO_LARGE";
+        throw error;
+    }
+    return value;
+}
+
 function requireWriteGate({ rootDir, taskId, token, requireTestsConfirmed }) {
     if (!isNonEmptyString(taskId)) {
         const error = new Error("taskId is required");
@@ -672,16 +704,30 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
             ),
             tool(
                 "rck.gate.confirmTask",
-                "Confirm one task and generate a time-limited gate token.",
+                "Confirm one task and generate a time-limited gate token after explicit human confirmation.",
                 {
                     type: "object",
                     additionalProperties: false,
-                    required: ["taskId"],
-                    properties: { taskId: { type: "string" } },
+                    required: ["taskId", "humanConfirmation"],
+                    properties: {
+                        taskId: { type: "string" },
+                        humanConfirmation: {
+                            type: "object",
+                            additionalProperties: true,
+                            required: ["confirmed", "source", "summary", "action"],
+                            properties: {
+                                confirmed: { type: "boolean" },
+                                source: { type: "string" },
+                                summary: { type: "string" },
+                                action: { type: "string", enum: ["confirm-task"] },
+                            },
+                        },
+                    },
                 },
                 async (args) => {
                     const input = normalizeArgs(args);
                     if (!isNonEmptyString(input.taskId)) throw new Error("taskId is required");
+                    requireHumanConfirmation(input.humanConfirmation, "confirm-task");
                     const result = confirmTaskGate(input.taskId, {}, rootDir);
                     if (result?.error) {
                         throw new Error(result.error);
@@ -702,16 +748,30 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
             ),
             tool(
                 "rck.gate.confirmTests",
-                "Confirm test execution for one task.",
+                "Confirm test execution for one task after explicit human confirmation.",
                 {
                     type: "object",
                     additionalProperties: false,
-                    required: ["taskId"],
-                    properties: { taskId: { type: "string" } },
+                    required: ["taskId", "humanConfirmation"],
+                    properties: {
+                        taskId: { type: "string" },
+                        humanConfirmation: {
+                            type: "object",
+                            additionalProperties: true,
+                            required: ["confirmed", "source", "summary", "action"],
+                            properties: {
+                                confirmed: { type: "boolean" },
+                                source: { type: "string" },
+                                summary: { type: "string" },
+                                action: { type: "string", enum: ["confirm-tests"] },
+                            },
+                        },
+                    },
                 },
                 async (args) => {
                     const input = normalizeArgs(args);
                     if (!isNonEmptyString(input.taskId)) throw new Error("taskId is required");
+                    requireHumanConfirmation(input.humanConfirmation, "confirm-tests");
                     const result = confirmTestsGate(input.taskId, rootDir);
                     if (result?.error) {
                         throw new Error(result.error);
@@ -764,7 +824,7 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                         throw error;
                     }
                     requireEvidence(input.evidence);
-                    const result = await runTaskTestThroughGate({ taskId: input.taskId, token: input.token });
+                    const result = await runTaskTestThroughGate({ taskId: input.taskId, token: input.token, rootDir });
                     return asJsonResult({
                         schemaVersion: "runtime/v1",
                         interface: "mcp",

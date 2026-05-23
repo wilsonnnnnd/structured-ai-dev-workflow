@@ -15,8 +15,10 @@ import { appendLoopEvent, listRecentLoopEvents } from "../src/loop/store.js";
 import { validateRuntimeContract } from "../src/runtime/runtime-schema.js";
 import { CONTEXT_BUDGET, budgetJsonPayload, estimateTokenUnits } from "../src/runtime/context-budget.js";
 import { serializeCompactJson } from "../src/runtime/serialize.js";
+import { detectHumanLanguage, formatAuditProtocolOutput, formatCompactOutput, formatCompactReport, formatSmartProtocolOutput } from "../src/runtime/output-presentation.js";
 import * as compressionModule from "../src/runtime/context-compression.js";
 import { computeRelevanceScore, rankFilesForContext } from "../src/runtime/context-relevance.js";
+import { generateSystemOverviewContent } from "../src/scan/system-overview.js";
 
 const originalCwd = process.cwd();
 
@@ -101,6 +103,15 @@ Keep the runtime surface compact.
 npm test
 \`\`\`
 `;
+}
+
+function humanConfirmation(action, summary = "Human confirmed this MCP gate action.") {
+    return {
+        confirmed: true,
+        source: "test-human-confirmation",
+        summary,
+        action,
+    };
 }
 
 function assertCompactJsonText(text, message) {
@@ -360,6 +371,123 @@ test("MCP write/test tiers keep the confirmation-gated core only", async () => {
     });
 });
 
+test("MCP gate confirmation tools require explicit human confirmation evidence", async () => {
+    await withTempProject(async (tempDir) => {
+        await withMutedConsole(() => runInit());
+        writeFile("package.json", JSON.stringify({ name: "mcp-human-confirmation", version: "0.0.0", type: "module" }, null, 4) + "\n");
+        writeFile("task/task.md", minimalRegistry());
+        writeFile("task/T-001-core-runtime.md", minimalTask());
+        await withMutedConsole(() => runScan());
+
+        await withMcpServer({ args: ["--root", tempDir, "--enable-write", "--enable-tests"] }, async ({ request }) => {
+            await request("initialize", {});
+
+            const missing = await request("tools/call", {
+                name: "rck.gate.confirmTask",
+                arguments: { taskId: "T-001" },
+            });
+            assert.equal(missing.error.data.code, "MISSING_HUMAN_CONFIRMATION");
+
+            const insufficient = await request("tools/call", {
+                name: "rck.gate.confirmTask",
+                arguments: {
+                    taskId: "T-001",
+                    humanConfirmation: {
+                        confirmed: false,
+                        source: "test-human-confirmation",
+                        summary: "Human did not confirm.",
+                        action: "confirm-task",
+                    },
+                },
+            });
+            assert.equal(insufficient.error.data.code, "HUMAN_CONFIRMATION_NOT_CONFIRMED");
+
+            const mismatch = await request("tools/call", {
+                name: "rck.gate.confirmTests",
+                arguments: {
+                    taskId: "T-001",
+                    humanConfirmation: humanConfirmation("confirm-task"),
+                },
+            });
+            assert.equal(mismatch.error.data.code, "HUMAN_CONFIRMATION_ACTION_MISMATCH");
+
+            const confirmedTask = await callMcpTool(request, "rck.gate.confirmTask", {
+                taskId: "T-001",
+                humanConfirmation: humanConfirmation("confirm-task"),
+            });
+            assert.equal(confirmedTask.parsed.gate.taskConfirmed, true);
+            assert.equal(typeof confirmedTask.parsed.gate.token, "string");
+
+            const missingTestsEvidence = await request("tools/call", {
+                name: "rck.gate.confirmTests",
+                arguments: { taskId: "T-001" },
+            });
+            assert.equal(missingTestsEvidence.error.data.code, "MISSING_HUMAN_CONFIRMATION");
+
+            const confirmedTests = await callMcpTool(request, "rck.gate.confirmTests", {
+                taskId: "T-001",
+                humanConfirmation: humanConfirmation("confirm-tests"),
+            });
+            assert.equal(confirmedTests.parsed.gate.testsConfirmed, true);
+        });
+    });
+});
+
+test("MCP runTest validates gates and runs tests inside the configured root", async () => {
+    await withTempProject(async (tempDir) => {
+        await withMutedConsole(() => runInit());
+        writeFile(
+            "package.json",
+            JSON.stringify(
+                {
+                    name: "mcp-run-test-root",
+                    version: "0.0.0",
+                    type: "module",
+                    scripts: {
+                        test: "node -e \"require('node:fs').writeFileSync('test-cwd.txt', process.cwd())\"",
+                    },
+                },
+                null,
+                4,
+            ) + "\n",
+        );
+        writeFile("task/task.md", minimalRegistry());
+        writeFile("task/T-001-core-runtime.md", minimalTask());
+        await withMutedConsole(() => runScan());
+
+        const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), "repo-context-kit-other-"));
+        try {
+            process.chdir(otherDir);
+            await withMcpServer({ args: ["--root", tempDir, "--enable-write", "--enable-tests"] }, async ({ request }) => {
+                await request("initialize", {});
+                const confirmedTask = await callMcpTool(request, "rck.gate.confirmTask", {
+                    taskId: "T-001",
+                    humanConfirmation: humanConfirmation("confirm-task"),
+                });
+                await callMcpTool(request, "rck.gate.confirmTests", {
+                    taskId: "T-001",
+                    humanConfirmation: humanConfirmation("confirm-tests"),
+                });
+                const run = await callMcpTool(request, "rck.gate.runTest", {
+                    taskId: "T-001",
+                    token: confirmedTask.parsed.gate.token,
+                    runtimeMode: "SAFE",
+                    evidence: { reason: "Regression test for MCP rootDir handling." },
+                });
+                assert.equal(run.parsed.test.ok, true);
+                assert.equal(run.parsed.test.exitCode, 0);
+            });
+        } finally {
+            process.chdir(tempDir);
+            rmTempDirTolerant(otherDir);
+        }
+
+        const testCwd = fs.readFileSync(path.resolve(tempDir, "test-cwd.txt"), "utf-8");
+        assert.equal(testCwd, tempDir);
+        assert.equal(fs.existsSync(path.resolve(otherDir, "test-cwd.txt")), false);
+    });
+});
+
 test("MCP read tools return bounded runtime/v1 JSON without CLI shell transport", async () => {
     await withTempProject(async (tempDir) => {
         await withMutedConsole(() => runInit());
@@ -490,6 +618,146 @@ test("MCP capability policy requires explicit opt-in by tier", () => {
     assert.equal(buildMcpCapabilityPolicy({ enableWrite: true }).allows("workflow-write"), true);
     assert.equal(buildMcpCapabilityPolicy({ enableWrite: true }).allows("test-exec"), false);
     assert.equal(buildMcpCapabilityPolicy({ enableWrite: true, enableTests: true }).allows("test-exec"), true);
+});
+
+test("runtime output presentation supports compact, smart protocol, and audit modes", () => {
+    const compact = formatCompactOutput({
+        state: "REVIEW",
+        goal: "Code health review (read-only)",
+        scope: ["bin", "src", "test"],
+        checks: ["architecture", "CLI behavior", "testing gaps"],
+        tests: "Not run",
+        need: "Confirm / Adjust / Cancel",
+    });
+    assert.match(compact, /^State: REVIEW/);
+    assert.match(compact, /Goal:\nCode health review/);
+    assert.doesNotMatch(compact, /confirmation-protocol|## State|allow_file_edits|Definition of Done/);
+
+    const smart = formatSmartProtocolOutput({
+        files: ["src/task.js", "test/cli.test.js"],
+        reason: "Source file modifications required.",
+        commands: ["npm test"],
+        need: "Confirm / Adjust / Cancel",
+    });
+    assert.match(smart, /^Need confirmation/);
+    assert.match(smart, /Files:\n\n\* src\/task\.js/);
+    assert.match(smart, /Commands:\n\n\* npm test/);
+    assert.doesNotMatch(smart, /## State|allow_commands/);
+
+    const audit = formatAuditProtocolOutput({
+        state: "TASK_DRAFT",
+        mode: "REVIEW",
+        gating: { allowFileEdits: false, allowCommands: false },
+        next: "TASK_CONFIRM",
+        output: "Full protocol detail.",
+        confirm: "Confirm / Adjust / Cancel",
+    });
+    assert.match(audit, /protocol: confirmation-protocol\/v1/);
+    assert.match(audit, /allow_file_edits: false/);
+    assert.match(audit, /## Confirm/);
+});
+
+test("runtime output presentation localizes only human-facing labels", () => {
+    assert.equal(detectHumanLanguage("请帮我检查这个项目"), "zh");
+    assert.equal(detectHumanLanguage("Please review this project"), "en");
+    assert.equal(detectHumanLanguage(""), "en");
+
+    const compact = formatCompactOutput({
+        state: "REVIEW",
+        goal: "代码健康巡检（只读）",
+        scope: ["bin", "src", "test"],
+        checks: ["architecture", "CLI behavior", "governance consistency"],
+        tests: "Not run",
+        need: "Confirm / Adjust / Cancel",
+        userText: "请帮我检查这个项目",
+    });
+    assert.match(compact, /^State: REVIEW/);
+    assert.match(compact, /目标 Goal:\n代码健康巡检/);
+    assert.match(compact, /范围 Scope:\n\n\* bin/);
+    assert.match(compact, /测试 Tests:\nNot run/);
+    assert.match(compact, /下一步 Need:\nConfirm \/ Adjust \/ Cancel/);
+    assert.doesNotMatch(compact, /状态|审查|确认 \/ 调整|allow_file_edits/);
+
+    const smart = formatSmartProtocolOutput({
+        files: ["src/task.js"],
+        commands: ["npm test"],
+        reason: "Source modifications required.",
+        need: "Confirm / Adjust / Cancel",
+        humanLanguage: "zh",
+    });
+    assert.match(smart, /^需要确认 Need confirmation/);
+    assert.match(smart, /文件 Files:\n\n\* src\/task\.js/);
+    assert.match(smart, /命令 Commands:\n\n\* npm test/);
+    assert.match(smart, /原因 Reason:\nSource modifications required/);
+
+    const audit = formatAuditProtocolOutput({
+        state: "TASK_DRAFT",
+        mode: "REVIEW",
+        gating: { allowFileEdits: false, allowCommands: false },
+        next: "TASK_CONFIRM",
+        output: "审计说明可以跟随用户语言。",
+        confirm: "Confirm / Adjust / Cancel",
+    });
+    assert.match(audit, /## State/);
+    assert.match(audit, /protocol: confirmation-protocol\/v1/);
+    assert.match(audit, /state: TASK_DRAFT/);
+    assert.match(audit, /allow_file_edits: false/);
+    assert.doesNotMatch(audit, /协议|允许编辑文件|状态:/);
+});
+
+test("runtime compact reports prefer example over before-after comparison", () => {
+    const report = formatCompactReport({
+        done: ["Compact output enabled"],
+        changed: ["src/runtime/output-presentation.js - report formatter"],
+        example: [
+            "State: REVIEW",
+            "",
+            "Goal:",
+            "Code health review (read-only)",
+            "",
+            "Tests:",
+            "Not run",
+            "",
+            "Need:",
+            "Confirm / Adjust / Cancel",
+        ].join("\n"),
+        tests: ["npm test passed: 34/34", "npm pack --dry-run passed"],
+        risk: "Low",
+        remaining: "None",
+    });
+
+    assert.match(report, /^Done:/);
+    assert.match(report, /Example:\n\nState: REVIEW/);
+    assert.match(report, /Tests:\n\n\* npm test passed/);
+    assert.doesNotMatch(report, /Before\/After|Before:|After:/);
+
+    const zhReport = formatCompactReport({
+        done: ["默认报告使用 Example"],
+        example: "State: REVIEW",
+        tests: ["npm test passed"],
+        risk: "Low",
+        remaining: "None",
+        humanLanguage: "zh",
+    });
+    assert.match(zhReport, /^完成 Done:/);
+    assert.match(zhReport, /示例 Example:\n\nState: REVIEW/);
+    assert.doesNotMatch(zhReport, /Before\/After|前后对比/);
+});
+
+test("gate status is compact by default and audit-only for protocol metadata", async () => {
+    await withTempProject(async () => {
+        const compact = await withCapturedConsole(() => runCliMain(["gate", "status"]));
+        const compactText = compact.output.join("\n");
+        assert.match(compactText, /^State: GATE/);
+        assert.match(compactText, /Need:\nConfirm task/);
+        assert.doesNotMatch(compactText, /## State|confirmation-protocol|allow_file_edits/);
+
+        const audit = await withCapturedConsole(() => runCliMain(["gate", "status", "--audit"]));
+        const auditText = audit.output.join("\n");
+        assert.match(auditText, /## State/);
+        assert.match(auditText, /protocol: confirmation-protocol\/v1/);
+        assert.match(auditText, /allow_file_edits: false/);
+    });
 });
 
 test("runtime/v1 validator accepts active runtime context/task envelopes", async () => {
@@ -796,6 +1064,30 @@ test("README and package manifest reflect the hard slim surface", () => {
     assert.equal(pkg.bin["repo-context-kit"], "bin/cli.js");
     assert.equal(pkg.bin["repo-context-kit-mcp"], "bin/mcp.js");
     assert.ok(!pkg.files.includes("site"));
+});
+
+test("template governance docs define compact-first output tiers", () => {
+    const protocol = fs.readFileSync(path.resolve(originalCwd, "template/.aidw/confirmation-protocol.md"), "utf-8");
+    const agents = fs.readFileSync(path.resolve(originalCwd, "template/AGENTS.md"), "utf-8");
+    const rules = fs.readFileSync(path.resolve(originalCwd, "template/.aidw/rules-canonical.md"), "utf-8");
+    const taskEntry = fs.readFileSync(path.resolve(originalCwd, "template/.aidw/task-entry.md"), "utf-8");
+
+    assert.match(protocol, /Compact Mode \(Default\)/);
+    assert.match(protocol, /Smart Protocol Mode \(Hard Boundary\)/);
+    assert.match(protocol, /Full Audit Mode \(Explicit\)/);
+    assert.match(protocol, /Do not render `## State`/);
+    assert.match(protocol, /Full Audit Mode renders/);
+    assert.match(agents, /Use compact output by default/);
+    assert.match(agents, /Use Smart Protocol output/);
+    assert.match(rules, /Smart Protocol Output \(Hard Boundary\)/);
+    assert.match(taskEntry, /draft a compact task summary/);
+});
+
+test("system overview marks optional loop files as runtime status", () => {
+    const overview = generateSystemOverviewContent();
+    assert.match(overview, /`\.aidw\/confirmation-gate\.json` - status: runtime/);
+    assert.match(overview, /`\.aidw\/context-loop\.jsonl` - status: runtime/);
+    assert.match(overview, /`\.aidw\/context-cache\.md` - status: runtime/);
 });
 
 test("legacy markdown builders are not exported and active JSON-first exports are intact", () => {

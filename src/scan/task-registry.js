@@ -144,15 +144,15 @@ export function ensureTaskRegistry() {
     return true;
 }
 
-export function parseTaskRegistry() {
-    if (!exists(TASK_REGISTRY_PATH)) {
+export function parseTaskRegistry(cwd = process.cwd()) {
+    if (!exists(TASK_REGISTRY_PATH, cwd)) {
         return {
             exists: false,
             tasks: [],
         };
     }
 
-    const lines = readText(TASK_REGISTRY_PATH).replace(/\r\n/g, "\n").split("\n");
+    const lines = readText(TASK_REGISTRY_PATH, cwd).replace(/\r\n/g, "\n").split("\n");
     const tasks = [];
     let inTasks = false;
 

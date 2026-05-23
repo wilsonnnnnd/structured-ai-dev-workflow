@@ -7,7 +7,7 @@
         "imports": [],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-11T10:58:01.981Z"
+        "updatedAt": "2026-05-23T12:40:50.600Z"
     },
     {
         "path": "bin/_cli-utils.js",
@@ -214,7 +214,7 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:51:12.996Z"
+        "updatedAt": "2026-05-16T14:08:18.006Z"
     },
     {
         "path": "bin/context.js",
@@ -246,11 +246,6 @@
                 "exported": false
             },
             {
-                "name": "buildNextTask",
-                "type": "function",
-                "exported": false
-            },
-            {
                 "name": "buildTaskContext",
                 "type": "function",
                 "exported": false
@@ -262,6 +257,16 @@
             },
             {
                 "name": "buildWorksetDigest",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "capList",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "clampString",
                 "type": "function",
                 "exported": false
             },
@@ -311,12 +316,22 @@
                 "exported": false
             },
             {
+                "name": "loadRuntimeSnapshot",
+                "type": "function",
+                "exported": false
+            },
+            {
                 "name": "normalizeDependencies",
                 "type": "function",
                 "exported": false
             },
             {
                 "name": "normalizeStatus",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "pickNextRuntimeTask",
                 "type": "function",
                 "exported": false
             },
@@ -364,21 +379,6 @@
                 "name": "renderWarningsSummary",
                 "type": "function",
                 "exported": false
-            },
-            {
-                "name": "scoreText",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "selectDigestSymbols",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "selectNextTask",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
@@ -393,17 +393,18 @@
             "../src/runtime/json-core.js",
             "../src/loop/store.js",
             "../src/loop/analyze.js",
-            "../src/budget/policy.js",
             "../src/budget/decision.js",
             "../src/loop/context-cache.js",
             "../src/runtime/context-brief.js",
             "../src/runtime/context-compression.js",
             "../src/runtime/context-relevance.js",
-            "../src/runtime/context-observability.js"
+            "../src/runtime/context-budget.js",
+            "../src/runtime/context-observability.js",
+            "../src/runtime/serialize.js"
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:48:00.260Z"
+        "updatedAt": "2026-05-16T14:10:25.484Z"
     },
     {
         "path": "bin/gate.js",
@@ -436,11 +437,12 @@
             "../src/gate/state.js",
             "../src/gate/run-test.js",
             "../src/loop/store.js",
+            "../src/runtime/output-presentation.js",
             "./_cli-utils.js"
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-10T08:56:41.592Z"
+        "updatedAt": "2026-05-23T12:39:53.429Z"
     },
     {
         "path": "bin/init.js",
@@ -608,17 +610,22 @@
                 "exported": false
             },
             {
-                "name": "buildTaskChecklist",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "buildTaskPrDescription",
-                "type": "function",
-                "exported": false
-            },
-            {
                 "name": "buildTaskTemplate",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "buildTaskWorkset",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "capList",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "clampString",
                 "type": "function",
                 "exported": false
             },
@@ -639,6 +646,11 @@
             },
             {
                 "name": "extractWorksetSection",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "findRuntimeTask",
                 "type": "function",
                 "exported": false
             },
@@ -713,27 +725,17 @@
                 "exported": false
             },
             {
+                "name": "loadRuntimeSnapshot",
+                "type": "function",
+                "exported": false
+            },
+            {
                 "name": "maybeAppendLearnableTaskEvent",
                 "type": "function",
                 "exported": false
             },
             {
                 "name": "normalizeDependencies",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "normalizeTaskId",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "normalizeTitle",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "planDocWarnings",
                 "type": "function",
                 "exported": false
             }
@@ -746,7 +748,6 @@
             "../src/scan/fs-utils.js",
             "../src/loop/analyze.js",
             "../src/loop/store.js",
-            "../src/budget/policy.js",
             "../src/budget/decision.js",
             "../src/scan/indexers/project-index.js",
             "../src/runtime/json-core.js",
@@ -756,7 +757,8 @@
             "../src/runtime/root-context.js",
             "../src/runtime/stable-sort.js",
             "../src/runtime/context-compression.js",
-            "../src/runtime/context-observability.js"
+            "../src/runtime/context-observability.js",
+            "../src/runtime/context-budget.js"
         ],
         "calls": [
             "fs.unlinkSync"
@@ -764,7 +766,7 @@
         "risks": [
             "fs-write"
         ],
-        "updatedAt": "2026-05-12T12:49:00.828Z"
+        "updatedAt": "2026-05-16T14:10:57.437Z"
     },
     {
         "path": "package.json",
@@ -774,7 +776,7 @@
         "imports": [],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:41:48.458Z"
+        "updatedAt": "2026-05-16T14:44:28.143Z"
     },
     {
         "path": "README.md",
@@ -784,7 +786,7 @@
         "imports": [],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:42:08.976Z"
+        "updatedAt": "2026-05-12T13:51:08.474Z"
     },
     {
         "path": "src/budget/decision.js",
@@ -949,7 +951,7 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T10:39:09.945Z"
+        "updatedAt": "2026-05-16T14:10:28.123Z"
     },
     {
         "path": "src/gate/run-test.js",
@@ -1017,7 +1019,7 @@
             "exec",
             "secrets-env"
         ],
-        "updatedAt": "2026-05-12T10:39:10.097Z"
+        "updatedAt": "2026-05-23T12:33:48.816Z"
     },
     {
         "path": "src/gate/state.js",
@@ -1260,11 +1262,12 @@
         ],
         "imports": [
             "./store.js",
-            "../runtime/stable-sort.js"
+            "../runtime/stable-sort.js",
+            "../runtime/context-budget.js"
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T10:39:10.165Z"
+        "updatedAt": "2026-05-16T14:10:28.167Z"
     },
     {
         "path": "src/loop/context-cache.js",
@@ -1374,11 +1377,13 @@
         ],
         "imports": [
             "fs",
-            "path"
+            "path",
+            "../runtime/context-budget.js",
+            "../runtime/stable-sort.js"
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-03T16:23:48.650Z"
+        "updatedAt": "2026-05-12T14:25:48.050Z"
     },
     {
         "path": "src/mcp/errors.js",
@@ -1525,6 +1530,11 @@
                 "exported": true
             },
             {
+                "name": "asJsonResult",
+                "type": "function",
+                "exported": false
+            },
+            {
                 "name": "assertCapabilityAllowed",
                 "type": "function",
                 "exported": false
@@ -1540,12 +1550,47 @@
                 "exported": false
             },
             {
+                "name": "findTask",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "getRuntimeTasks",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "getTaskFacts",
+                "type": "function",
+                "exported": false
+            },
+            {
                 "name": "isNonEmptyString",
                 "type": "function",
                 "exported": false
             },
             {
+                "name": "limitArray",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "loadJsonFile",
+                "type": "function",
+                "exported": false
+            },
+            {
                 "name": "loadJsonIndex",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "loadPackageMeta",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "loadRuntimeV1",
                 "type": "function",
                 "exported": false
             },
@@ -1585,7 +1630,17 @@
                 "exported": false
             },
             {
+                "name": "pickNextTask",
+                "type": "function",
+                "exported": false
+            },
+            {
                 "name": "requireEvidence",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "requireHumanConfirmation",
                 "type": "function",
                 "exported": false
             },
@@ -1610,12 +1665,16 @@
             "node:path",
             "./spawn-cli.js",
             "../gate/state.js",
+            "../gate/run-test.js",
             "../runtime/runtime-schema.js",
-            "../runtime/serialize.js"
+            "../runtime/context-budget.js",
+            "../runtime/serialize.js",
+            "../runtime/context-observability.js",
+            "../scan/index.js"
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:41:12.895Z"
+        "updatedAt": "2026-05-23T12:34:08.649Z"
     },
     {
         "path": "src/runtime/context-brief.js",
@@ -1657,6 +1716,135 @@
         "updatedAt": "2026-05-11T10:58:01.982Z"
     },
     {
+        "path": "src/runtime/context-budget.js",
+        "roleSummary": "Source module used by project scanning.",
+        "exports": [
+            {
+                "name": "applyRuntimeBudget",
+                "type": "function"
+            },
+            {
+                "name": "budgetJsonPayload",
+                "type": "function"
+            },
+            {
+                "name": "estimateTokenUnits",
+                "type": "function"
+            },
+            {
+                "name": "limitArray",
+                "type": "function"
+            },
+            {
+                "name": "limitString",
+                "type": "function"
+            }
+        ],
+        "keySymbols": [
+            {
+                "name": "applyRuntimeBudget",
+                "type": "function",
+                "exported": true
+            },
+            {
+                "name": "budgetJsonPayload",
+                "type": "function",
+                "exported": true
+            },
+            {
+                "name": "estimateTokenUnits",
+                "type": "function",
+                "exported": true
+            },
+            {
+                "name": "limitArray",
+                "type": "function",
+                "exported": true
+            },
+            {
+                "name": "limitString",
+                "type": "function",
+                "exported": true
+            },
+            {
+                "name": "budgetValue",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "buildMinimalShape",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "collectBudgetNodes",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "getByPath",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "isIntegerLike",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "isPlainObject",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "makeSchemaPlaceholder",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "normalizeArray",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "parsePathParts",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "preserveEnvelopeFields",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "reduceBudgetNode",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "setByPath",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "toPositiveInteger",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "truncateStringByBytes",
+                "type": "function",
+                "exported": false
+            }
+        ],
+        "imports": [
+            "./stable-sort.js"
+        ],
+        "calls": [],
+        "risks": [],
+        "updatedAt": "2026-05-12T14:34:38.004Z"
+    },
+    {
         "path": "src/runtime/context-compression.js",
         "roleSummary": "Source module used by project scanning.",
         "exports": [
@@ -1673,15 +1861,7 @@
                 "type": "function"
             },
             {
-                "name": "computeRelevanceScore",
-                "type": "function"
-            },
-            {
                 "name": "detectSemanticDuplication",
-                "type": "function"
-            },
-            {
-                "name": "filterRelevantFiles",
                 "type": "function"
             },
             {
@@ -1710,17 +1890,7 @@
                 "exported": true
             },
             {
-                "name": "computeRelevanceScore",
-                "type": "function",
-                "exported": true
-            },
-            {
                 "name": "detectSemanticDuplication",
-                "type": "function",
-                "exported": true
-            },
-            {
-                "name": "filterRelevantFiles",
                 "type": "function",
                 "exported": true
             },
@@ -1740,7 +1910,7 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-11T10:58:01.982Z"
+        "updatedAt": "2026-05-16T14:10:02.246Z"
     },
     {
         "path": "src/runtime/context-observability.js",
@@ -1863,11 +2033,13 @@
             "../scan/fs-utils.js",
             "../scan/task-registry.js",
             "./context-compression.js",
-            "./context-relevance.js"
+            "./context-relevance.js",
+            "./context-budget.js",
+            "./serialize.js"
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-11T11:14:41.300Z"
+        "updatedAt": "2026-05-12T14:32:51.903Z"
     },
     {
         "path": "src/runtime/context-relevance.js",
@@ -1934,11 +2106,12 @@
         ],
         "imports": [
             "../scan/fs-utils.js",
-            "../scan/constants.js"
+            "../scan/constants.js",
+            "./stable-sort.js"
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-11T10:58:01.986Z"
+        "updatedAt": "2026-05-16T14:10:02.247Z"
     },
     {
         "path": "src/runtime/deprecations.js",
@@ -2076,6 +2249,11 @@
                 "exported": false
             },
             {
+                "name": "normalizeFactList",
+                "type": "function",
+                "exported": false
+            },
+            {
                 "name": "sortById",
                 "type": "function",
                 "exported": false
@@ -2096,7 +2274,61 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:49:14.612Z"
+        "updatedAt": "2026-05-12T14:25:48.052Z"
+    },
+    {
+        "path": "src/runtime/output-presentation.js",
+        "roleSummary": "Source module used by project scanning.",
+        "exports": [
+            {
+                "name": "formatAuditProtocolOutput",
+                "type": "function"
+            },
+            {
+                "name": "formatCompactOutput",
+                "type": "function"
+            },
+            {
+                "name": "formatSmartProtocolOutput",
+                "type": "function"
+            }
+        ],
+        "keySymbols": [
+            {
+                "name": "formatAuditProtocolOutput",
+                "type": "function",
+                "exported": true
+            },
+            {
+                "name": "formatCompactOutput",
+                "type": "function",
+                "exported": true
+            },
+            {
+                "name": "formatSmartProtocolOutput",
+                "type": "function",
+                "exported": true
+            },
+            {
+                "name": "cleanList",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "cleanText",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "renderList",
+                "type": "function",
+                "exported": false
+            }
+        ],
+        "imports": [],
+        "calls": [],
+        "risks": [],
+        "updatedAt": "2026-05-23T12:39:35.472Z"
     },
     {
         "path": "src/runtime/rdl/pdgl.js",
@@ -2224,12 +2456,12 @@
                 "exported": false
             },
             {
-                "name": "getByPath",
+                "name": "isJsonSafePrimitive",
                 "type": "function",
                 "exported": false
             },
             {
-                "name": "isJsonSafePrimitive",
+                "name": "isNonEmptyString",
                 "type": "function",
                 "exported": false
             },
@@ -2244,18 +2476,45 @@
                 "exported": false
             },
             {
-                "name": "validateRisk",
+                "name": "validateArrayBound",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "validateContextPayload",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "validateExecutionPayload",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "validatePayloadByKind",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "validateStringArray",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "validateTaskPayload",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "validateVerificationPayload",
                 "type": "function",
                 "exported": false
             }
         ],
-        "imports": [
-            "./runtime-version.js",
-            "./deprecations.js"
-        ],
+        "imports": [],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-10T09:10:42.945Z"
+        "updatedAt": "2026-05-16T14:10:02.246Z"
     },
     {
         "path": "src/runtime/runtime-version.js",
@@ -2288,6 +2547,10 @@
         "roleSummary": "Source module used by project scanning.",
         "exports": [
             {
+                "name": "serializeCompactJson",
+                "type": "function"
+            },
+            {
                 "name": "serializeJson",
                 "type": "function"
             },
@@ -2297,6 +2560,11 @@
             }
         ],
         "keySymbols": [
+            {
+                "name": "serializeCompactJson",
+                "type": "function",
+                "exported": true
+            },
             {
                 "name": "serializeJson",
                 "type": "function",
@@ -2328,7 +2596,7 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-10T14:11:28.930Z"
+        "updatedAt": "2026-05-12T13:57:44.430Z"
     },
     {
         "path": "src/runtime/stable-sort.js",
@@ -2368,7 +2636,7 @@
         "imports": [],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T10:39:10.286Z"
+        "updatedAt": "2026-05-16T14:10:28.172Z"
     },
     {
         "path": "src/scan/constants.js",
@@ -3028,7 +3296,7 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:50:17.670Z"
+        "updatedAt": "2026-05-16T14:10:28.190Z"
     },
     {
         "path": "src/scan/indexers/project-index.js",
@@ -3280,11 +3548,6 @@
                 "name": "getPackageJsonDigest",
                 "type": "function",
                 "exported": true
-            },
-            {
-                "name": "readFileFingerprint",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
@@ -3357,16 +3620,6 @@
                 "name": "listPythonFiles",
                 "type": "function",
                 "exported": true
-            },
-            {
-                "name": "hasFastApiDependencyInText",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "readTextSafe",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
@@ -3412,41 +3665,6 @@
                 "name": "updateSystemOverview",
                 "type": "function",
                 "exported": true
-            },
-            {
-                "name": "appendRecords",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "appendTaskHealth",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "appendTaskRegistry",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "appendTaskSources",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "formatRecord",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "normalizeContent",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "statusFor",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
@@ -3457,7 +3675,7 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:50:17.729Z"
+        "updatedAt": "2026-05-23T12:46:44.953Z"
     },
     {
         "path": "src/scan/task-files.js",
@@ -3518,32 +3736,18 @@
                 "name": "parseTaskFile",
                 "type": "function",
                 "exported": true
-            },
-            {
-                "name": "extractTaskId",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "extractTaskTitle",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "readTextSafe",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
             "path",
             "./constants.js",
             "./fs-utils.js",
-            "./task-registry.js"
+            "./task-registry.js",
+            "../docs/doc-extractor.js"
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-03T16:23:48.657Z"
+        "updatedAt": "2026-05-12T14:25:48.052Z"
     },
     {
         "path": "src/scan/task-registry.js",
@@ -3613,21 +3817,6 @@
                 "name": "resolveTaskFilePath",
                 "type": "function",
                 "exported": true
-            },
-            {
-                "name": "formatTaskRow",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "normalizeContent",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "normalizeRegistryFileCell",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
@@ -3638,7 +3827,7 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T10:39:10.534Z"
+        "updatedAt": "2026-05-23T12:33:39.545Z"
     },
     {
         "path": "src/scan/writers/project-md.js",
@@ -3663,31 +3852,6 @@
                 "name": "updateProjectMd",
                 "type": "function",
                 "exported": true
-            },
-            {
-                "name": "buildUpdatedContent",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "createProjectMdContent",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "findMarkers",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "normalizeSection",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "readHumanProjectBrief",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
@@ -3712,31 +3876,6 @@
                 "name": "createVirtualTask",
                 "type": "function",
                 "exported": true
-            },
-            {
-                "name": "buildVirtualTaskDetailMarkdown",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "detectDefaultTestCommand",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "extractFilePathsFromSection",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "extractMarkdownSection",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "normalizeTitle",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
@@ -3767,7 +3906,7 @@
         "imports": [],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-12T12:51:40.348Z"
+        "updatedAt": "2026-05-23T12:46:52.280Z"
     },
     {
         "path": "test/helpers.js",

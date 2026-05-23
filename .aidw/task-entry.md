@@ -22,7 +22,7 @@ Use `AGENTS.md` as the source of truth. See `.aidw/rules-canonical.md` for all r
   - REVIEW: user asks to review or provides an existing prompt/plan/task/implementation.
   - IMPLEMENT: otherwise.
 - If vague: ask only implementation-boundary questions, then stop.
-- If clear: draft a task (Goal, Background, Scope, Requirements, Acceptance Criteria, Test Command, Definition of Done), request click-to-confirm, then implement and verify.
+- If clear: draft a compact task summary (Goal, Scope, Checks/Requirements, Tests, Need), request confirmation, then implement and verify. Keep full Background/AC/DoD for audit mode or when needed.
 - Prefer running tests via `repo-context-kit gate run-test <taskId>` when available.
 - For REVIEW without Task/AC: draft minimal Task/AC first, then review against it.
 
@@ -45,8 +45,8 @@ For frontend tasks:
 
 - Do not write code unless the user explicitly requests implementation and confirms the task draft.
 - Do not skip clarification for vague requests.
-- Compact output is default; expand only per escalation triggers in `.aidw/rules-canonical.md`.
-- Default status: `State: ...`, `Changed: ...`, `Tests: ...`, `Risk: ...`
+- Compact output is default; use Smart Protocol only for hard boundaries and Full Audit only when explicitly requested.
+- Default status: `State: ...`, `Goal: ...`, `Scope: ...`, `Checks: ...`, `Tests: ...`, `Need: ...`
 - Default final report: `Done: ...`, `Tests: ...`, `Note: ...`
+- Prefer `Example` of current behavior over `Before/After`; only compare when explicitly requested or in audit/debug mode.
 - Reference rules by name/section, not full text (e.g., "per Reuse First rule")
-

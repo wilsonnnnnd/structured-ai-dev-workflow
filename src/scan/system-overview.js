@@ -72,6 +72,10 @@ function formatRecord(filePath, purpose) {
     return `- \`${filePath}\` - status: ${statusFor(filePath)} - ${purpose}`;
 }
 
+function formatRuntimeRecord(filePath, purpose) {
+    return `- \`${filePath}\` - status: runtime - ${purpose}`;
+}
+
 function appendRecords(lines, records) {
     lines.push(...records.map(([filePath, purpose]) => formatRecord(filePath, purpose)));
 }
@@ -130,20 +134,7 @@ function appendTaskRegistry(lines) {
 }
 
 function normalizeContent(content) {
-    const normalized = content.replace(/\r\n/g, "\n").replace(/\n$/, "");
-    return normalized
-        .replace(
-            /(- `\.aidw\/confirmation-gate\.json` - status: )(present|missing)/g,
-            "$1runtime",
-        )
-        .replace(
-            /(- `\.aidw\/context-loop\.jsonl` - status: )(present|missing)/g,
-            "$1runtime",
-        )
-        .replace(
-            /(- `\.aidw\/context-cache\.md` - status: )(present|missing)/g,
-            "$1runtime",
-        );
+    return content.replace(/\r\n/g, "\n").replace(/\n$/, "");
 }
 
 export function generateSystemOverviewContent() {
@@ -184,9 +175,9 @@ export function generateSystemOverviewContent() {
         "",
         "## Execution Loop (Optional)",
         "",
-        formatRecord(".aidw/confirmation-gate.json", "Local gate state for task/test confirmations (runtime file)"),
-        formatRecord(".aidw/context-loop.jsonl", "Append-only context loop log for recent confirmations and test runs (runtime file)"),
-        formatRecord(".aidw/context-cache.md", "Cached token-efficient brief context output (runtime file)"),
+        formatRuntimeRecord(".aidw/confirmation-gate.json", "Local gate state for task/test confirmations (runtime file)"),
+        formatRuntimeRecord(".aidw/context-loop.jsonl", "Append-only context loop log for recent confirmations and test runs (runtime file)"),
+        formatRuntimeRecord(".aidw/context-cache.md", "Cached token-efficient brief context output (runtime file)"),
         formatRecord("repo-context-kit metrics", "Print compact runtime metrics JSON"),
         formatRecord("repo-context-kit check", "Run checks derived from lessons (blocker rules fail by default)"),
     );

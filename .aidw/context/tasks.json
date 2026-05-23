@@ -19,7 +19,40 @@
         "path": "task/T-001-governance-boundary-hardening.md",
         "hasAcceptanceCriteria": true,
         "hasTestCommand": true,
-        "hasDefinitionOfDone": true
+        "hasDefinitionOfDone": true,
+        "facts": {
+            "goal": "Close bounded governance escape hatches in task file resolution, design doc loading, and controlled test execution.",
+            "scope": [
+                "`src/scan/task-registry.js`",
+                "`src/gate/run-test.js`",
+                "`src/docs/doc-loader.js`",
+                "`test/cli.test.js`",
+                "No automatic install",
+                "No automatic git operations",
+                "No arbitrary shell execution",
+                "No writes outside managed workflow paths"
+            ],
+            "requirements": [
+                "Reject task registry file paths that escape `task/` or repoRoot.",
+                "Reject design doc loading that escapes repoRoot via symlinks.",
+                "Remove `shell:true` from controlled test execution.",
+                "Add regression tests for all boundary cases."
+            ],
+            "acceptanceCriteria": [
+                "Task registry path traversal is rejected with a friendly error.",
+                "Doc-loader rejects symlink escapes and does not crash on broken links.",
+                "gate/run-test executes only allowed commands with `shell:false`.",
+                "`npm test` passes."
+            ],
+            "definitionOfDone": [
+                "Boundary fixes implemented.",
+                "Tests added/updated.",
+                "Test command passes."
+            ],
+            "hardBoundaries": [],
+            "confirmationPoints": [],
+            "testCommand": "npm test"
+        }
     },
     {
         "task": "Workflow consolidation",
@@ -41,7 +74,39 @@
         "path": "task/T-002-workflow-consolidation.md",
         "hasAcceptanceCriteria": true,
         "hasTestCommand": true,
-        "hasDefinitionOfDone": true
+        "hasDefinitionOfDone": true,
+        "facts": {
+            "goal": "Make the default repo-context-kit workflow explicit and cohesive: doctor enters the mainline, preflight bundle is documented, and governance layers are clearly defined as hard gates vs signals.",
+            "scope": [
+                "`README.md`",
+                "`docs/runtime-governance.md`",
+                "`bin/cli.js` (help text only, if needed)",
+                "`test/cli.test.js`",
+                "No new auto-execution capabilities",
+                "No new preflight command surface (bundle is documentation-first)",
+                "No changes that expand MCP write capabilities"
+            ],
+            "requirements": [
+                "README default workflow: `init → scan → bootstrap doctor → task prompt → human implementation → task checklist → task pr → scan --check → bootstrap doctor --check`.",
+                "Document the preflight bundle (`scan --check` + `bootstrap doctor --check`) for CI/local usage.",
+                "Add governance layer documentation clarifying responsibilities and gates/signals.",
+                "Keep docs discoverable via README links."
+            ],
+            "acceptanceCriteria": [
+                "README includes the consolidated default workflow and explains the two check layers.",
+                "Governance doc exists and clearly separates hard gates vs signals.",
+                "Tests assert docs and README content for discoverability and correctness.",
+                "`npm test` passes."
+            ],
+            "definitionOfDone": [
+                "Docs updated.",
+                "Tests added/updated.",
+                "Test command passes."
+            ],
+            "hardBoundaries": [],
+            "confirmationPoints": [],
+            "testCommand": "npm test"
+        }
     },
     {
         "task": "Deterministic scan cleanup",
@@ -63,7 +128,37 @@
         "path": "task/T-003-deterministic-scan-cleanup.md",
         "hasAcceptanceCriteria": true,
         "hasTestCommand": true,
-        "hasDefinitionOfDone": true
+        "hasDefinitionOfDone": true,
+        "facts": {
+            "goal": "Reduce nondeterminism in scan/index/task/context outputs by using stable, locale-independent sorting and documenting mtime-based freshness limitations.",
+            "scope": [
+                "Sorting utilities used by scan/index/task/context outputs",
+                "Documentation describing freshness limitations",
+                "Tests validating stable ordering and bounded output",
+                "No redesign of scan architecture",
+                "No switch to hash-based freshness unless already available and bounded",
+                "No new control planes"
+            ],
+            "requirements": [
+                "Replace locale-dependent comparators on key outputs with a stable comparator.",
+                "Document that freshness may still depend on mtime and can vary across machines/CI.",
+                "Add tests that validate stable ordering and bounded trimming behavior."
+            ],
+            "acceptanceCriteria": [
+                "Key outputs no longer use locale-dependent sorting.",
+                "Governance docs mention mtime freshness limitations.",
+                "Tests cover comparator stability and bounded trimming.",
+                "`npm test` passes."
+            ],
+            "definitionOfDone": [
+                "Determinism improvements implemented.",
+                "Tests added/updated.",
+                "Test command passes."
+            ],
+            "hardBoundaries": [],
+            "confirmationPoints": [],
+            "testCommand": "npm test"
+        }
     },
     {
         "task": "change init behavior",

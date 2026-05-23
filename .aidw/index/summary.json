@@ -1,20 +1,20 @@
 {
-    "generatedAt": "2026-05-12T12:54:24.120Z",
-    "totalFilesScanned": 93,
-    "indexedFiles": 63,
-    "indexedSymbols": 473,
+    "generatedAt": "2026-05-23T12:46:52.280Z",
+    "totalFilesScanned": 95,
+    "indexedFiles": 65,
+    "indexedSymbols": 500,
     "fileGroups": 14,
-    "packageJsonDigest": "d49c6e6460d1d089843e0b41be5e07749de6316e1da95c6cf7cd405cafe3cf71",
+    "packageJsonDigest": "428eaab839ae44fd60125b8724bf40eb296676d2b63196889ad981fed339e312",
     "lockfileFingerprints": {
         "packageLock": {
             "path": "package-lock.json",
-            "sha256": "d1cde3f961ae78d537f0d972a4c5779c0d14f42b9cf60cea38c7a21806f4fbbf",
-            "bytes": 55066,
+            "sha256": "4f9950b4b5aa423c2e65d00994cac1f37844023f9590d016447d7c35cbfe0ce9",
+            "bytes": 55121,
             "truncated": false,
             "maxBytes": null
         },
         "pnpmLock": null,
         "yarnLock": null
     },
-    "truncated": false
+    "truncated": true
 }

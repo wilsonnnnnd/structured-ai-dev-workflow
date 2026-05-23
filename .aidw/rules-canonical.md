@@ -87,17 +87,19 @@
 ## Context Discipline
 
 ### Compact Output (Default)
-- Short status lines: `State: IMPLEMENT`, `Changed: ...`, `Tests: ...`, `Risk: ...`
+- Default for normal read-only work, low-risk status, routine summaries, and final reports
+- Prefer concise fields: `State`, `Goal`, `Scope`, `Checks`, `Changed`, `Tests`, `Risk`, `Need`, `Note`
 - Final reports: `Done`, `Tests`, `Note`
-- No full `## State` / `## Output` / `## Confirm` blocks unless required
+- Do not render protocol metadata, gating booleans, full AC, DoD, Background, or large task trees unless needed
 
-### Escalation Triggers (Expand Only When)
-- Confirmation required
-- Task scope unresolved
-- Test execution approval needed
-- Destructive/write/external side effects
-- High-risk or unresolved risks
-- Audit/debug/review requested
+### Smart Protocol Output (Hard Boundary)
+- Use when confirmation is required for file writes, command/test execution, destructive or external side effects, meaningful risk, unresolved scope, or scope changes
+- Show only relevant `Files`, `Commands`, `Reason`, `Risk`, and `Need`
+- Do not render full `## State` / `## Output` / `## Confirm` blocks
+
+### Full Audit Output (Explicit Only)
+- Use only for `--audit`, `--protocol`, `--verbose`, debug/audit request, or machine-readable protocol transcript
+- Full audit may include protocol metadata, gating booleans, full AC, DoD, and acceptance report detail
 
 ### Context Budget
 - Digest only by default

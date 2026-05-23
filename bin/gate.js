@@ -8,24 +8,45 @@ import {
 } from "../src/gate/state.js";
 import { runTaskTestThroughGate } from "../src/gate/run-test.js";
 import { appendLoopEvent } from "../src/loop/store.js";
+import { formatAuditProtocolOutput, formatCompactOutput } from "../src/runtime/output-presentation.js";
 import { emitJson, getArgValue, getFlag, pickCommand, stripFlag } from "./_cli-utils.js";
 
-function printGateStatus(state) {
+function printGateStatus(state, options = {}) {
     const active = state.active;
     const hasActive = Boolean(active?.taskConfirmed);
-    console.log([
-        "# Runtime Approval",
-        "",
-        `- task: ${active?.taskId ?? "none"}`,
-        `- scope approved: ${hasActive ? "yes" : "no"}`,
-        `- tests approved: ${active?.testsConfirmed ? "yes" : "no"}`,
-        `- expires: ${active?.expiresAt ?? "-"}`,
-        "",
-        "## What This Allows",
-        "",
-        `- file edits: ${hasActive ? "approved" : "blocked"}`,
-        `- test command: ${active?.testsConfirmed ? "approved" : "blocked"}`,
-    ].join("\n"));
+    const fileEdits = hasActive ? "approved" : "blocked";
+    const testCommand = active?.testsConfirmed ? "approved" : "blocked";
+    if (options.audit) {
+        console.log(formatAuditProtocolOutput({
+            state: "GATE_STATUS",
+            mode: "READ",
+            gating: {
+                allowFileEdits: hasActive,
+                allowCommands: Boolean(active?.testsConfirmed),
+            },
+            next: "NONE",
+            output: [
+                `task: ${active?.taskId ?? "none"}`,
+                `scope approved: ${hasActive ? "yes" : "no"}`,
+                `tests approved: ${active?.testsConfirmed ? "yes" : "no"}`,
+                `expires: ${active?.expiresAt ?? "-"}`,
+                `file edits: ${fileEdits}`,
+                `test command: ${testCommand}`,
+            ].join("\n"),
+        }).trimEnd());
+        return;
+    }
+    console.log(formatCompactOutput({
+        state: "GATE",
+        goal: "Runtime approval status",
+        scope: [
+            `task: ${active?.taskId ?? "none"}`,
+            `file edits: ${fileEdits}`,
+            `test command: ${testCommand}`,
+        ],
+        tests: active?.testsConfirmed ? "Approved" : "Blocked",
+        need: hasActive ? "Continue / Confirm tests / Run gated test" : "Confirm task",
+    }).trimEnd());
 }
 
 function usage() {
@@ -35,12 +56,16 @@ function usage() {
   repo-context-kit gate confirm task <taskId> [--ttl-minutes <n>] [--json]
   repo-context-kit gate confirm tests <taskId> [--json]
   repo-context-kit gate run-test <taskId> --token <token> [--json]
+
+Options:
+  --audit    Show full protocol metadata for gate status
 `);
 }
 
 export async function runGate(args = []) {
     const json = getFlag(args, "--json");
-    const filteredArgs = stripFlag(args, "--json");
+    const audit = getFlag(args, "--audit") || getFlag(args, "--protocol");
+    const filteredArgs = stripFlag(stripFlag(stripFlag(args, "--json"), "--audit"), "--protocol");
     const subcommand = pickCommand(filteredArgs, null);
 
     if (!subcommand || subcommand === "help" || subcommand === "--help") {
@@ -54,7 +79,7 @@ export async function runGate(args = []) {
             emitJson({ ok: true, state });
             return;
         }
-        printGateStatus(state);
+        printGateStatus(state, { audit });
         return;
     }
 
@@ -66,7 +91,7 @@ export async function runGate(args = []) {
             return;
         }
         console.log(`OK Gate reset: ${path.relative(process.cwd(), filePath).replaceAll("\\", "/")}`);
-        printGateStatus(state);
+        printGateStatus(state, { audit });
         return;
     }
 

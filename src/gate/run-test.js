@@ -23,15 +23,15 @@ function normalizeCommand(command) {
     return String(command ?? "").trim().replace(/\s+/g, " ");
 }
 
-function resolveTaskFile(taskId) {
-    const registry = parseTaskRegistry();
+function resolveTaskFile(taskId, cwd = process.cwd()) {
+    const registry = parseTaskRegistry(cwd);
     const task = registry.tasks.find((entry) => entry.id?.toLowerCase() === taskId.toLowerCase()) ?? null;
 
     if (!task) {
         return { error: `Task not found: ${taskId}`, file: null };
     }
 
-    const resolved = resolveTaskFilePath(task, { requireExists: true });
+    const resolved = resolveTaskFilePath(task, { repoRoot: cwd, requireExists: true });
     if (!resolved.ok) {
         return { error: resolved.error || "Task file is invalid.", file: null };
     }
@@ -111,8 +111,8 @@ function parseTestCommand(raw) {
     };
 }
 
-function getTaskTestCommand(taskId) {
-    const { error, file } = resolveTaskFile(taskId);
+function getTaskTestCommand(taskId, cwd = process.cwd()) {
+    const { error, file } = resolveTaskFile(taskId, cwd);
     if (error) {
         return { error, command: null };
     }
@@ -134,7 +134,7 @@ function getTaskTestCommand(taskId) {
     return { error: null, command: parsed };
 }
 
-async function runAllowedCommand(command) {
+async function runAllowedCommand(command, cwd = process.cwd()) {
     return new Promise((resolve) => {
         const isWindows = process.platform === "win32";
         const isPackageManager =
@@ -145,6 +145,7 @@ async function runAllowedCommand(command) {
             : command.args;
 
         const child = spawn(spawnCommand, spawnArgs, {
+            cwd,
             stdio: "inherit",
             shell: false,
             windowsHide: true,
@@ -155,18 +156,17 @@ async function runAllowedCommand(command) {
     });
 }
 
-export async function runTaskTestThroughGate({ taskId, token }) {
-    const gating = validateGate({ taskId, token, requireTestsConfirmed: true });
+export async function runTaskTestThroughGate({ taskId, token, rootDir = process.cwd() }) {
+    const gating = validateGate({ taskId, token, requireTestsConfirmed: true }, rootDir);
     if (!gating.ok) {
         return { ok: false, exitCode: 1, error: gating.error, command: null };
     }
 
-    const { error, command } = getTaskTestCommand(taskId);
+    const { error, command } = getTaskTestCommand(taskId, rootDir);
     if (error) {
         return { ok: false, exitCode: 1, error, command: null };
     }
 
-    const exitCode = await runAllowedCommand(command);
+    const exitCode = await runAllowedCommand(command, rootDir);
     return { ok: exitCode === 0, exitCode, error: null, command: command.display };
 }
-

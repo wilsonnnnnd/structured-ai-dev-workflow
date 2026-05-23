@@ -25,9 +25,25 @@ Markdown is a compatibility view and legacy fallback.
 
 Doctor output, lessons, context-loop data, budget decisions, and risk summaries are signals. They may shape context or warnings. They must not trigger writes, tests, fixes, approvals, or external side effects without a hard gate.
 
-## Compact Output
+## Compact-First Output
 
-CLI output should stay compact. Full protocol rendering is only for confirmations, tests, destructive/write/external side effects, unresolved scope, audit/debug, or machine-readable integrations.
+Runtime presentation uses three tiers:
+
+1. Compact by default for normal read-only work, routine status, and final reports.
+2. Smart Protocol for hard boundaries such as file writes, test/command execution, destructive or external side effects, meaningful risk, unresolved scope, or scope changes.
+3. Full Audit only for explicit audit/debug/protocol requests or machine-readable protocol transcripts.
+
+Compact presentation does not weaken gates. The same MCP tiers, confirmation state, and allowlisted test execution rules still apply.
+
+Human-facing labels may follow the user's language, but machine-facing terms remain English: protocol ids, state names, JSON keys, MCP/tool names, paths, commands, task ids, enums, and CLI flags.
+
+Default reports show the current behavior as `Example` rather than `Before/After`. Comparisons are reserved for explicit verbose/audit/protocol/debug requests, explicit compare/diff requests, or major breaking UX changes.
+
+## Confirmation Attestation Direction
+
+Current MCP confirmation tools require explicit `humanConfirmation` evidence. That is enough for lightweight host accountability today, but it is not cryptographic proof of a human click.
+
+Future attestation is only worth adding if hosts need stronger audit trails. A minimal direction would be host-signed confirmation metadata over task id, action, timestamp, and prompt/session id. Avoid adding auth infrastructure, key management, or breaking protocol fields unless a concrete host integration requires it.
 
 ## Non-goals
 

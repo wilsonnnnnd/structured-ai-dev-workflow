@@ -41,6 +41,12 @@ Classify requests into:
 
 ## Output Presentation
 
-Compact output is the default external presentation.
+Use compact output by default. Keep normal read-only reviews and routine status updates short: `State`, `Goal`, `Scope`, `Checks`, `Tests`, `Need`, `Done`, `Note`.
 
-Expand to full protocol rendering only when confirmation is required, task scope is unresolved, tests are about to run, a destructive/write/external action needs approval, high-risk or unresolved risks exist, scope changes during execution, or current task file is present.
+Use Smart Protocol output when a hard boundary needs confirmation: file writes, command/test execution, destructive or external side effects, meaningful risk, unresolved scope, or scope changes. Show only the relevant files, commands, reason, risk, and confirmation choices.
+
+Use Full Audit output only when explicitly requested (`--audit`, `--protocol`, `--verbose`, debug/audit request, or machine-readable protocol transcript). Full Audit may render `## State`, protocol metadata, gating booleans, AC, DoD, and full acceptance detail.
+
+For mixed-language output, human-facing labels and explanations follow the user's dominant language; machine-facing terms remain English (`State`, `REVIEW`, commands, paths, protocol ids, JSON keys, MCP/tool names, task ids, CLI flags).
+
+Do not include `Before/After` in normal reports. Prefer a single `Example` of current behavior; compare only for explicit verbose/audit/protocol/debug requests, explicit compare/diff requests, or major breaking UX changes.
