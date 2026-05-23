@@ -45,6 +45,15 @@ export const MANAGED_CONTEXT_FILE_PATHS = new Set([
     CONTEXT_SCAN_LAST_PATH,
 ]);
 
+export const AGENT_FILE_PATHS = new Set([
+    "AGENTS.md",
+    "skill.md",
+    ".claude/skills/repo-context-kit/SKILL.md",
+    ".github/copilot-instructions.md",
+    ".github/agents/repo-context-kit.agent.md",
+    ".trae/rules/project_rules.md",
+]);
+
 export const PROJECT_TYPES = {
     CLI_TOOL: "cli-tool",
     WEB_APP: "web-app",

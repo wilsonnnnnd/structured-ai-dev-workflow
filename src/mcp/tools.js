@@ -664,6 +664,7 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                     properties: {
                         dryRun: { type: "boolean" },
                         force: { type: "boolean" },
+                        updateAgentFiles: { type: "boolean" },
                         runtimeMode: { type: "string", enum: ["SAFE", "STANDARD", "EXPERIMENTAL"] },
                         taskId: { type: "string" },
                         token: { type: "string" },
@@ -675,6 +676,7 @@ export function buildMcpTools({ rootDir, enableWrite, enableTests, enableExterna
                     const cliArgs = ["init"];
                     if (pickBoolean(input.dryRun, false)) cliArgs.push("--dry-run");
                     if (pickBoolean(input.force, false)) cliArgs.push("--force");
+                    if (pickBoolean(input.updateAgentFiles, false)) cliArgs.push("--update-agent-files");
                     return runGovernedCli({ rootDir, runCli, input, cliArgs });
                 },
                 MCP_CAPABILITY_TIERS.WORKFLOW_WRITE,

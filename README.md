@@ -35,6 +35,7 @@ Markdown is a readable view only.
 
 ```bash
 rck init
+rck init --force --update-agent-files
 rck scan [--check]
 rck context brief
 rck context next-task

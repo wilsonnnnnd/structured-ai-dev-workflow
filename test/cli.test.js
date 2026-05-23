@@ -266,6 +266,60 @@ test("removed aliases and task helpers fail as unknown", async () => {
     });
 });
 
+test("init force updates managed context but preserves agent files by default", async () => {
+    await withTempProject(async () => {
+        await withMutedConsole(() => runInit());
+
+        writeFile("AGENTS.md", "custom agents\n");
+        writeFile(".github/copilot-instructions.md", "custom copilot\n");
+        writeFile(".aidw/workflow.md", "custom workflow\n");
+
+        const { output } = await withCapturedConsole(() => runInit({ force: true }));
+        const text = output.join("\n");
+        assert.match(text, /Updated: \d+/);
+        assert.match(text, /Skipped: \d+/);
+        assert.match(text, /\.\.\. \d+ more/);
+
+        assert.equal(fs.readFileSync(path.resolve("AGENTS.md"), "utf-8"), "custom agents\n");
+        assert.equal(fs.readFileSync(path.resolve(".github/copilot-instructions.md"), "utf-8"), "custom copilot\n");
+        assert.notEqual(fs.readFileSync(path.resolve(".aidw/workflow.md"), "utf-8"), "custom workflow\n");
+    });
+});
+
+test("init force update-agent-files explicitly refreshes agent adapter files", async () => {
+    await withTempProject(async () => {
+        await withMutedConsole(() => runInit());
+
+        writeFile("AGENTS.md", "custom agents\n");
+        writeFile("skill.md", "custom skill\n");
+        writeFile(".claude/skills/repo-context-kit/SKILL.md", "custom claude\n");
+        writeFile(".github/copilot-instructions.md", "custom copilot\n");
+        writeFile(".github/agents/repo-context-kit.agent.md", "custom github agent\n");
+        writeFile(".trae/rules/project_rules.md", "custom trae\n");
+
+        const { output } = await withCapturedConsole(() => runCliMain(["init", "--force", "--update-agent-files", "--dry-run"]));
+        const text = output.join("\n");
+        assert.match(text, /Would update: \d+/);
+        assert.match(text, /AGENTS\.md/);
+        assert.match(text, /\.github\/copilot-instructions\.md/);
+        assert.match(text, /\.\.\. \d+ more/);
+
+        await withMutedConsole(() => runCliMain(["init", "--force", "--update-agent-files"]));
+
+        for (const filePath of [
+            "AGENTS.md",
+            "skill.md",
+            ".claude/skills/repo-context-kit/SKILL.md",
+            ".github/copilot-instructions.md",
+            ".github/agents/repo-context-kit.agent.md",
+            ".trae/rules/project_rules.md",
+        ]) {
+            const expected = fs.readFileSync(path.resolve(originalCwd, "template", filePath), "utf-8");
+            assert.equal(fs.readFileSync(path.resolve(filePath), "utf-8"), expected, filePath);
+        }
+    });
+});
+
 test("scan writes runtime/v1 JSON and core context/task commands remain usable", async () => {
     await withTempProject(async () => {
         await withMutedConsole(() => runInit());

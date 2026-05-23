@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import {
+    AGENT_FILE_PATHS,
     CONTEXT_DIR,
     CONTEXT_INDEX_DIR,
     CONTEXT_TASKS_DIR,
@@ -14,6 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const templateDir = path.resolve(__dirname, "../template");
+const INIT_OUTPUT_ITEM_LIMIT = 6;
 
 function formatRelative(filePath, baseDir) {
     return path.relative(baseDir, filePath).replaceAll(path.sep, "/");
@@ -35,7 +37,10 @@ function copyDir(src, dest, options, results) {
             const relativePath = formatRelative(destPath, options.targetDir);
 
             if (fs.existsSync(destPath)) {
-                if (options.force && MANAGED_CONTEXT_FILE_PATHS.has(relativePath)) {
+                const canUpdateManaged = MANAGED_CONTEXT_FILE_PATHS.has(relativePath);
+                const canUpdateAgent = options.updateAgentFiles && AGENT_FILE_PATHS.has(relativePath);
+
+                if (options.force && (canUpdateManaged || canUpdateAgent)) {
                     results.updated.push(relativePath);
 
                     if (!options.dryRun) {
@@ -64,23 +69,45 @@ function copyDir(src, dest, options, results) {
     }
 }
 
-function printList(title, items) {
+function getItemLabel(item) {
+    return typeof item === "string" ? item : item.label;
+}
+
+function getItemNotes(item) {
+    return typeof item === "string" ? [] : item.notes;
+}
+
+function getSummaryItems(items, options = {}) {
+    const ordered = [...items];
+
+    if (options.prioritizeAgentFiles) {
+        ordered.sort((left, right) => {
+            const leftPriority = AGENT_FILE_PATHS.has(getItemLabel(left)) ? 0 : 1;
+            const rightPriority = AGENT_FILE_PATHS.has(getItemLabel(right)) ? 0 : 1;
+            return leftPriority - rightPriority;
+        });
+    }
+
+    return ordered.slice(0, INIT_OUTPUT_ITEM_LIMIT);
+}
+
+function printList(title, items, options = {}) {
     if (items.length === 0) {
         return;
     }
 
-    console.log(`${title}:`);
+    console.log(`${title}: ${items.length}`);
 
-    for (const item of items) {
-        if (typeof item === "string") {
-            console.log(`* ${item}`);
-            continue;
-        }
+    for (const item of getSummaryItems(items, options)) {
+        console.log(`* ${getItemLabel(item)}`);
 
-        console.log(`* ${item.label}`);
-        for (const note of item.notes) {
+        for (const note of getItemNotes(item)) {
             console.log(`  ${note}`);
         }
+    }
+
+    if (items.length > INIT_OUTPUT_ITEM_LIMIT) {
+        console.log(`* ... ${items.length - INIT_OUTPUT_ITEM_LIMIT} more`);
     }
 }
 
@@ -124,7 +151,7 @@ function printInitResult(results) {
             console.log("");
         }
 
-        printList(title, items);
+        printList(title, items, { prioritizeAgentFiles: title === "Updated" });
     });
 
     printNext();
@@ -134,6 +161,7 @@ export async function runInit(options = {}) {
     const initOptions = {
         dryRun: Boolean(options.dryRun),
         force: Boolean(options.force),
+        updateAgentFiles: Boolean(options.updateAgentFiles),
         targetDir: options.targetDir || process.cwd(),
     };
     const contextDirPath = path.resolve(initOptions.targetDir, CONTEXT_DIR);
@@ -160,7 +188,7 @@ export async function runInit(options = {}) {
         console.log("");
         printList("Would create", getDisplayCreatedItems(results));
         console.log("");
-        printList("Would update", results.updated);
+        printList("Would update", results.updated, { prioritizeAgentFiles: true });
         console.log("");
         printList("Would skip", results.skipped);
         printNext();

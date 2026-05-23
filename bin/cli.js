@@ -86,6 +86,7 @@ export async function main(args = process.argv.slice(2)) {
         await runInit({
             dryRun: args.includes("--dry-run"),
             force: args.includes("--force"),
+            updateAgentFiles: args.includes("--update-agent-files"),
         });
         return;
     }
