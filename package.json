@@ -1,6 +1,6 @@
 {
     "name": "repo-context-kit",
-    "version": "1.7.3",
+    "version": "1.8.0",
     "description": "Compact deterministic repository runtime for AI coding agents.",
     "type": "module",
     "engines": {

@@ -1,5 +1,11 @@
 # repo-context-kit
 
+## 1.8.0
+
+### Minor Changes
+
+- 82f0df3: Reduce default output to save on token usage.
+
 ## 1.7.3
 
 ### Patch Changes
