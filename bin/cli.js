@@ -33,12 +33,12 @@ function formatDefaultCommandSurface() {
 
 function printHelp() {
     console.log(`Usage:
-  repo-context-kit <command> [options]
+  rck <command> [options]
 
 Agent runtime:
 ${formatDefaultCommandSurface()}
 
-Primary interface: repo-context-kit-mcp
+Primary interface: rck-mcp
 Runtime JSON: .aidw/runtime/*.json
 
 Global options:
@@ -46,7 +46,7 @@ Global options:
   --version                 Show package version
 
 MCP:
-  repo-context-kit-mcp [--root <path>] [--enable-write] [--enable-tests] [--enable-external-side-effects]
+  rck-mcp [--root <path>] [--enable-write] [--enable-tests] [--enable-external-side-effects]
 
 Runtime:
   JSON is source of truth.
@@ -144,23 +144,23 @@ export async function main(args = process.argv.slice(2)) {
 
     console.error(`Unknown command: ${command}`);
     console.log("Usage:");
-    console.log("  repo-context-kit init");
-    console.log("  repo-context-kit scan [--check]");
-    console.log("  repo-context-kit context brief");
-    console.log("  repo-context-kit context next-task");
-    console.log("  repo-context-kit context workset <taskId> [--deep]");
-    console.log("  repo-context-kit gate status");
-    console.log("  repo-context-kit gate confirm task <taskId>");
-    console.log("  repo-context-kit gate confirm tests <taskId>");
-    console.log("  repo-context-kit gate run-test <taskId> --token <token>");
-    console.log("  repo-context-kit check --explain");
-    console.log("  repo-context-kit check --strict");
-    console.log("  repo-context-kit check --warn-only");
-    console.log("  repo-context-kit task checklist <taskId> [--deep]");
-    console.log("  repo-context-kit task pr <taskId> [--deep]");
-    console.log("  repo-context-kit task prompt <taskId> [--deep]");
-    console.log("  repo-context-kit metrics");
-    console.log("  repo-context-kit --help");
+    console.log("  rck init");
+    console.log("  rck scan [--check]");
+    console.log("  rck context brief");
+    console.log("  rck context next-task");
+    console.log("  rck context workset <taskId> [--deep]");
+    console.log("  rck gate status");
+    console.log("  rck gate confirm task <taskId>");
+    console.log("  rck gate confirm tests <taskId>");
+    console.log("  rck gate run-test <taskId> --token <token>");
+    console.log("  rck check --explain");
+    console.log("  rck check --strict");
+    console.log("  rck check --warn-only");
+    console.log("  rck task checklist <taskId> [--deep]");
+    console.log("  rck task pr <taskId> [--deep]");
+    console.log("  rck task prompt <taskId> [--deep]");
+    console.log("  rck metrics");
+    console.log("  rck --help");
     process.exitCode = 1;
 }
 

@@ -6,16 +6,16 @@ repo-context-kit is MCP-native first: MCP transport + runtime/v1 JSON state + mi
 
 Primary interfaces:
 
-1. MCP (`repo-context-kit-mcp`)
+1. MCP (`rck-mcp`)
 2. runtime/v1 JSON (`.aidw/runtime/*.json`)
-3. minimal CLI (`init`, `scan`, `context`, `task`, `gate`, `check`, `metrics`)
+3. minimal CLI (`rck`)
 
 It provides bounded repository context, runtime task state, verification framing, and confirmation-gated execution for AI coding agents.
 
 ## MCP
 
 ```bash
-repo-context-kit-mcp --root <repo>
+rck-mcp --root <repo>
 ```
 
 The MCP server is read-only by default. Write, test, and external-side-effect tiers require explicit opt-in and still honor the confirmation gate.
@@ -34,18 +34,18 @@ Markdown is a readable view only.
 ## Usage
 
 ```bash
-repo-context-kit init
-repo-context-kit scan [--check]
-repo-context-kit context brief
-repo-context-kit context next-task
-repo-context-kit context workset <taskId>
-repo-context-kit task prompt <taskId>
-repo-context-kit task checklist <taskId>
-repo-context-kit task pr <taskId>
-repo-context-kit gate status
-repo-context-kit gate confirm task <taskId>
-repo-context-kit gate confirm tests <taskId>
-repo-context-kit gate run-test <taskId> --token <token>
-repo-context-kit check
-repo-context-kit metrics
+rck init
+rck scan [--check]
+rck context brief
+rck context next-task
+rck context workset <taskId>
+rck task prompt <taskId>
+rck task checklist <taskId>
+rck task pr <taskId>
+rck gate status
+rck gate confirm task <taskId>
+rck gate confirm tests <taskId>
+rck gate run-test <taskId> --token <token>
+rck check
+rck metrics
 ```

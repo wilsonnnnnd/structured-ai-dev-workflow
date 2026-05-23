@@ -7,8 +7,8 @@
         "node": ">=18"
     },
     "bin": {
-        "repo-context-kit": "bin/cli.js",
-        "repo-context-kit-mcp": "bin/mcp.js"
+        "rck": "bin/cli.js",
+        "rck-mcp": "bin/mcp.js"
     },
     "scripts": {
         "test": "node test/cli.test.js",

@@ -51,11 +51,11 @@ function printGateStatus(state, options = {}) {
 
 function usage() {
     console.log(`Usage:
-  repo-context-kit gate status
-  repo-context-kit gate reset
-  repo-context-kit gate confirm task <taskId> [--ttl-minutes <n>] [--json]
-  repo-context-kit gate confirm tests <taskId> [--json]
-  repo-context-kit gate run-test <taskId> --token <token> [--json]
+  rck gate status
+  rck gate reset
+  rck gate confirm task <taskId> [--ttl-minutes <n>] [--json]
+  rck gate confirm tests <taskId> [--json]
+  rck gate run-test <taskId> --token <token> [--json]
 
 Options:
   --audit    Show full protocol metadata for gate status
@@ -127,7 +127,7 @@ export async function runGate(args = []) {
                 keyReasoning: "Human confirmed task scope and enabled file edits per confirmation protocol.",
                 verification: "task_confirmed",
                 risks: [],
-                nextActions: [`repo-context-kit gate confirm tests ${result.state?.active?.taskId ?? "<taskId>"}`],
+                nextActions: [`rck gate confirm tests ${result.state?.active?.taskId ?? "<taskId>"}`],
             });
             if (json) {
                 emitJson({
@@ -144,8 +144,8 @@ export async function runGate(args = []) {
             console.log(`Token: ${result.token}`);
             console.log("");
             console.log("Next:");
-            console.log(`- Prepare AI prompt: repo-context-kit task prompt ${result.state?.active?.taskId ?? taskId}`);
-            console.log(`- Approve tests when ready: repo-context-kit gate confirm tests ${result.state?.active?.taskId ?? taskId}`);
+            console.log(`- Prepare AI prompt: rck task prompt ${result.state?.active?.taskId ?? taskId}`);
+            console.log(`- Approve tests when ready: rck gate confirm tests ${result.state?.active?.taskId ?? taskId}`);
             return;
         }
 
@@ -176,7 +176,7 @@ export async function runGate(args = []) {
                 keyReasoning: "Human confirmed test execution per confirmation protocol.",
                 verification: "tests_confirmed",
                 risks: [],
-                nextActions: [`repo-context-kit gate run-test ${result.state?.active?.taskId ?? "<taskId>"} --token <token>`],
+                nextActions: [`rck gate run-test ${result.state?.active?.taskId ?? "<taskId>"} --token <token>`],
             });
             if (json) {
                 emitJson({
@@ -192,7 +192,7 @@ export async function runGate(args = []) {
             console.log(`Task: ${result.state?.active?.taskId ?? taskId}`);
             console.log("");
             console.log("Next:");
-            console.log(`- Run tests: repo-context-kit gate run-test ${result.state?.active?.taskId ?? taskId} --token <token>`);
+            console.log(`- Run tests: rck gate run-test ${result.state?.active?.taskId ?? taskId} --token <token>`);
             return;
         }
 
@@ -213,7 +213,7 @@ export async function runGate(args = []) {
 
         const token = getArgValue(filteredArgs, "--token");
         if (!token) {
-            const error = "Missing gate token. Usage: repo-context-kit gate run-test <taskId> --token <token>";
+            const error = "Missing gate token. Usage: rck gate run-test <taskId> --token <token>";
             if (json) {
                 emitJson({ ok: false, error });
             } else {

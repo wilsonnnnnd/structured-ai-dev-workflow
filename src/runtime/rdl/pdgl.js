@@ -112,7 +112,7 @@ export function readPdglV1Status({ repoRoot, limits } = {}) {
             weakSections: [],
             overLimitSections: [],
             missingChecks: CHECKS.map((c) => c.id),
-            suggestedImprovements: ["Run repo-context-kit init to create PROJECT.md, then fill PDGL (v1)."],
+            suggestedImprovements: ["Run rck init to create PROJECT.md, then fill PDGL (v1)."],
             limits: appliedLimits,
         };
     }

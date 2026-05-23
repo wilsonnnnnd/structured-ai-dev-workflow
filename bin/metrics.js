@@ -5,7 +5,7 @@ export async function runMetrics(args = []) {
     const help = args.includes("--help") || args.includes("help");
     if (help) {
         console.log("Usage:");
-        console.log("  repo-context-kit metrics");
+        console.log("  rck metrics");
         return {
             output: null,
         };

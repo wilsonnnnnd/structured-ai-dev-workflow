@@ -9,7 +9,7 @@ import { getTaskConsistencyWarnings } from "../src/scan/task-files.js";
 
 function usage() {
     console.log(`Usage:
-  repo-context-kit check [--explain] [--strict | --warn-only]
+  rck check [--explain] [--strict | --warn-only]
 `);
 }
 
@@ -150,7 +150,7 @@ function evaluateLesson(lesson) {
                     `observed: ${failures}`,
                     lesson.confidence != null ? `confidence: ${lesson.confidence}` : null,
                 ].filter(Boolean),
-                howToFix: fixLines.length > 0 ? fixLines : ["Run: repo-context-kit scan"],
+                howToFix: fixLines.length > 0 ? fixLines : ["Run: rck scan"],
             };
         }
 
@@ -173,7 +173,7 @@ function evaluateLesson(lesson) {
                     ? lesson.pattern
                     : "Scan output is out of date.",
             evidence,
-            howToFix: fixLines.length > 0 ? fixLines : ["Run: repo-context-kit scan"],
+            howToFix: fixLines.length > 0 ? fixLines : ["Run: rck scan"],
         };
     }
 
@@ -204,7 +204,7 @@ function evaluateLesson(lesson) {
                 ].filter(Boolean),
                 howToFix: fixLines.length > 0
                     ? fixLines
-                    : ["Fix task/task.md and task/T-*.md to match, then run: repo-context-kit scan"],
+                    : ["Fix task/task.md and task/T-*.md to match, then run: rck scan"],
             };
         }
 
@@ -222,7 +222,7 @@ function evaluateLesson(lesson) {
             evidence: warnings,
             howToFix: fixLines.length > 0
                 ? fixLines
-                : ["Fix task/task.md and task/T-*.md to match, then run: repo-context-kit scan"],
+                : ["Fix task/task.md and task/T-*.md to match, then run: rck scan"],
         };
     }
 
@@ -254,7 +254,7 @@ function evaluateLesson(lesson) {
                 ].filter(Boolean),
                 howToFix: fixLines.length > 0
                     ? fixLines
-                    : ["Restore AUTO-GENERATED markers, then run: repo-context-kit scan"],
+                    : ["Restore AUTO-GENERATED markers, then run: rck scan"],
             };
         }
 
@@ -274,7 +274,7 @@ function evaluateLesson(lesson) {
             ],
             howToFix: fixLines.length > 0
                 ? fixLines
-                : ["Restore AUTO-GENERATED markers, then run: repo-context-kit scan"],
+                : ["Restore AUTO-GENERATED markers, then run: rck scan"],
         };
     }
 
@@ -415,7 +415,7 @@ export async function runCheck(args = []) {
     if (!isDirectory(".aidw")) {
         console.error("ERROR Project is not initialized.");
         console.error("Next:");
-        console.error("- Run: repo-context-kit init");
+        console.error("- Run: rck init");
         process.exitCode = 1;
         return { ok: false };
     }
@@ -424,7 +424,7 @@ export async function runCheck(args = []) {
     if (!lessonsRead.ok && lessonsRead.reason === "missing_or_invalid") {
         console.error("ERROR Missing or invalid .aidw/lessons.json");
         console.error("Next:");
-        console.error("- Restore .aidw/lessons.json or re-run: repo-context-kit init");
+        console.error("- Restore .aidw/lessons.json or re-run: rck init");
         process.exitCode = 1;
         return { ok: false };
     }

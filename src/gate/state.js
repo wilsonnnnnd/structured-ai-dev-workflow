@@ -172,7 +172,7 @@ export function validateGate({ taskId, token, requireTestsConfirmed = false }, c
     }
 
     if (requireTestsConfirmed && !active.testsConfirmed) {
-        return { ok: false, error: "Tests are not confirmed. Run: repo-context-kit gate confirm tests <taskId>" };
+        return { ok: false, error: "Tests are not confirmed. Run: rck gate confirm tests <taskId>" };
     }
 
     return { ok: true, error: null };

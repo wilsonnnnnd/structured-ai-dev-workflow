@@ -18,7 +18,7 @@ const MAX_HUMAN_BRIEF_CHARS = 16_000;
 
 function readHumanProjectBrief() {
     if (!exists(HUMAN_PROJECT_BRIEF_PATH)) {
-        return "_PROJECT.md is missing. Create it with `repo-context-kit init` or add it manually._";
+        return "_PROJECT.md is missing. Create it with `rck init` or add it manually._";
     }
     const content = readText(HUMAN_PROJECT_BRIEF_PATH).trim();
     if (!content) {

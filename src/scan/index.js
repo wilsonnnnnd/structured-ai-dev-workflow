@@ -414,7 +414,7 @@ function printDefaultScanResult(result) {
     console.log("");
     console.log("Next:");
     console.log("* Provide task/task.md and task/T-*.md files");
-    console.log("* Or prepare AI context: repo-context-kit context next-task");
+    console.log("* Or prepare AI context: rck context next-task");
     printWarnings(result.warnings);
 }
 
@@ -738,7 +738,7 @@ export function computeContextFreshness(options = {}) {
             triggered: packageJsonChanged,
             penalty: 20,
             evidence: { baselineMs, baselineDigest: baselinePackageDigest, currentDigest: currentPackageDigest },
-            suggestedAction: "Run repo-context-kit scan to refresh indexes after dependency changes.",
+            suggestedAction: "Run rck scan to refresh indexes after dependency changes.",
         },
         {
             id: "lockfile_changed",
@@ -748,28 +748,28 @@ export function computeContextFreshness(options = {}) {
                 baseline: lockfile.baseline ? { path: lockfile.baseline.path, sha256: lockfile.baseline.sha256, bytes: lockfile.baseline.bytes } : null,
                 current: lockfile.current ? { path: lockfile.current.path, sha256: lockfile.current.sha256, bytes: lockfile.current.bytes } : null,
             },
-            suggestedAction: "Run repo-context-kit scan to refresh context after lockfile updates.",
+            suggestedAction: "Run rck scan to refresh context after lockfile updates.",
         },
         {
             id: "entrypoints_changed",
             triggered: Boolean(entrypoints.changed),
             penalty: 20,
             evidence: { changedEntrypoints: entrypoints.changedEntrypoints },
-            suggestedAction: "Re-run repo-context-kit scan to re-detect entrypoints and update system overview.",
+            suggestedAction: "Re-run rck scan to re-detect entrypoints and update system overview.",
         },
         {
             id: "symbols_drifted",
             triggered: Boolean(symbols.drifted),
             penalty: 15,
             evidence: { modifiedCodeFiles: symbols.modifiedCodeFiles, scanned: symbols.scanned, truncated: symbols.truncated },
-            suggestedAction: "Re-run repo-context-kit scan to refresh symbols and file summaries.",
+            suggestedAction: "Re-run rck scan to refresh symbols and file summaries.",
         },
         {
             id: "file_groups_drifted",
             triggered: Boolean(fileGroups.drifted),
             penalty: 10,
             evidence: { topDirs: fileGroups.topDirs, added: (fileDiff.added || []).slice(0, 8), removed: (fileDiff.removed || []).slice(0, 8) },
-            suggestedAction: "Re-run repo-context-kit scan to refresh file groups after structure changes.",
+            suggestedAction: "Re-run rck scan to refresh file groups after structure changes.",
         },
         {
             id: "missing_workset_files",
@@ -783,7 +783,7 @@ export function computeContextFreshness(options = {}) {
             triggered: Boolean(taskChanged) || taskWarnings.length > 0,
             penalty: 10,
             evidence: { taskChanged, warnings: taskWarnings.slice(0, 6) },
-            suggestedAction: "Update tasks and re-run repo-context-kit scan so task mappings stay consistent.",
+            suggestedAction: "Update tasks and re-run rck scan so task mappings stay consistent.",
         },
         {
             id: "snapshots_missing",
@@ -852,7 +852,7 @@ function printScanPlan({ willUpdate = [], reasons = [] }) {
     }
     console.log("");
     console.log("Next:");
-    console.log("- Run: repo-context-kit scan");
+    console.log("- Run: rck scan");
 }
 
 function combineCheckUpdates(projectUpdate, systemOverviewUpdate, warnings) {
@@ -912,7 +912,7 @@ function printCheckResult(update) {
         console.log(`* AUTO-GENERATED markers not found in ${CONTEXT_PROJECT_MD_PATH}`);
         console.log("");
         console.log("Next:");
-        console.log("* Run 'repo-context-kit scan' to regenerate.");
+        console.log("* Run 'rck scan' to regenerate.");
         return;
     }
 
@@ -945,7 +945,7 @@ function printCheckResult(update) {
     }
     console.log("");
     console.log("Next:");
-    console.log("* Run 'repo-context-kit scan' to update.");
+    console.log("* Run 'rck scan' to update.");
 }
 
 function printSkippedUpdateResult() {
@@ -962,12 +962,12 @@ function printContextStatusError(status) {
     if (status.reason === "not-initialized") {
         console.log("ERROR Project not initialized");
         console.log(`Missing: ${CONTEXT_DIR}/`);
-        console.log("Run: repo-context-kit init");
+        console.log("Run: rck init");
         return;
     }
 
     console.log("ERROR Project context is incomplete");
-    console.log("Run: repo-context-kit scan --auto");
+    console.log("Run: rck scan --auto");
 }
 
 function updateProjectIndexSafe() {

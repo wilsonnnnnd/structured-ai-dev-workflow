@@ -90,7 +90,7 @@ function printNext(options = {}) {
     }
 
     console.log("Next:");
-    console.log("* Run repo-context-kit scan");
+    console.log("* Run rck scan");
 }
 
 function getDisplayCreatedItems(results) {

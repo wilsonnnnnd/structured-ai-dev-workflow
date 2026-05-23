@@ -365,14 +365,14 @@ function selectRelatedFiles(task, detailContent, limits, warnings) {
     const fileGroups = readJson(CONTEXT_INDEX_FILE_GROUPS_PATH);
 
     if (!files) {
-        warnings.push(`${CONTEXT_INDEX_FILES_PATH} is missing. Run repo-context-kit scan.`);
+        warnings.push(`${CONTEXT_INDEX_FILES_PATH} is missing. Run rck scan.`);
         return [];
     }
     if (!entrypoints) {
-        warnings.push(`${CONTEXT_INDEX_ENTRYPOINTS_PATH} is missing. Run repo-context-kit scan.`);
+        warnings.push(`${CONTEXT_INDEX_ENTRYPOINTS_PATH} is missing. Run rck scan.`);
     }
     if (!fileGroups) {
-        warnings.push(`${CONTEXT_INDEX_FILE_GROUPS_PATH} is missing. Run repo-context-kit scan.`);
+        warnings.push(`${CONTEXT_INDEX_FILE_GROUPS_PATH} is missing. Run rck scan.`);
     }
 
     const keywords = tokenize(`${task.id} ${task.title} ${detailContent}`);
@@ -448,7 +448,7 @@ function selectRelatedSymbols(task, detailContent, relatedFiles, limits, warning
     const symbols = readJson(CONTEXT_INDEX_SYMBOLS_PATH);
 
     if (!symbols) {
-        warnings.push(`${CONTEXT_INDEX_SYMBOLS_PATH} is missing. Run repo-context-kit scan.`);
+        warnings.push(`${CONTEXT_INDEX_SYMBOLS_PATH} is missing. Run rck scan.`);
         return [];
     }
 
@@ -756,7 +756,7 @@ function buildBrief(options = {}) {
     warnings.push(...findTaskFileMismatchWarnings(registry));
 
     if (!summary) {
-        warnings.push(`${CONTEXT_INDEX_SUMMARY_PATH} is missing. Run repo-context-kit scan.`);
+        warnings.push(`${CONTEXT_INDEX_SUMMARY_PATH} is missing. Run rck scan.`);
     }
 
     const parts = ["# Project Context Brief"];
@@ -952,7 +952,7 @@ function buildWorksetDigest(taskRef, warnings = [], options = {}) {
 
     if (!taskId && !providedTask) {
         warnings.push("Missing task id.");
-        return renderBounded(["# Workset Context", "Usage: repo-context-kit context workset <taskId> [--digest] [--deep]"], {
+        return renderBounded(["# Workset Context", "Usage: rck context workset <taskId> [--digest] [--deep]"], {
             level: "workset --digest",
             taskId: null,
             includedSources: [],
@@ -999,7 +999,7 @@ function buildWorksetDigest(taskRef, warnings = [], options = {}) {
         includedSources.push(CONTEXT_PROJECT_MD_PATH);
     }
     if (!readJson(CONTEXT_INDEX_SUMMARY_PATH)) {
-        warnings.push(`${CONTEXT_INDEX_SUMMARY_PATH} is missing. Run repo-context-kit scan.`);
+        warnings.push(`${CONTEXT_INDEX_SUMMARY_PATH} is missing. Run rck scan.`);
     }
     if (readJson(CONTEXT_INDEX_FILES_PATH)) {
         includedSources.push(CONTEXT_INDEX_FILES_PATH);
@@ -1135,7 +1135,7 @@ function buildWorkset(taskRef, options = {}) {
 
     if (!taskId && !providedTask) {
         warnings.push("Missing task id.");
-        return renderBounded(["# Workset Context", "Usage: repo-context-kit context workset <taskId>"], {
+        return renderBounded(["# Workset Context", "Usage: rck context workset <taskId>"], {
             level,
             taskId: null,
             includedSources: [],
@@ -1183,7 +1183,7 @@ function buildWorkset(taskRef, options = {}) {
     if (readJson(CONTEXT_INDEX_SUMMARY_PATH)) {
         includedSources.push(CONTEXT_INDEX_SUMMARY_PATH);
     } else {
-        warnings.push(`${CONTEXT_INDEX_SUMMARY_PATH} is missing. Run repo-context-kit scan.`);
+        warnings.push(`${CONTEXT_INDEX_SUMMARY_PATH} is missing. Run rck scan.`);
     }
     if (readJson(CONTEXT_INDEX_FILES_PATH)) {
         includedSources.push(CONTEXT_INDEX_FILES_PATH);
@@ -1250,9 +1250,9 @@ export async function runContext(args = []) {
 
     if (subcommand === "help" || args.includes("--help")) {
         console.log("Usage:");
-        console.log("  repo-context-kit context brief");
-        console.log("  repo-context-kit context next-task");
-        console.log("  repo-context-kit context workset <taskId> [--compact|--digest] [--deep]");
+        console.log("  rck context brief");
+        console.log("  rck context next-task");
+        console.log("  rck context workset <taskId> [--compact|--digest] [--deep]");
         console.log("");
         console.log("Options:");
         console.log("  --compact    Prefer bounded digest output (same as default)");
@@ -1282,9 +1282,9 @@ export async function runContext(args = []) {
     } else {
         console.error("Unknown context command.");
         console.log("Usage:");
-        console.log("  repo-context-kit context brief");
-        console.log("  repo-context-kit context next-task");
-        console.log("  repo-context-kit context workset <taskId> [--compact|--digest] [--deep]");
+        console.log("  rck context brief");
+        console.log("  rck context next-task");
+        console.log("  rck context workset <taskId> [--compact|--digest] [--deep]");
         console.log("Options:");
         console.log("  --compact    Prefer bounded digest output (same as default)");
         console.log("  --full       Disable digest output");

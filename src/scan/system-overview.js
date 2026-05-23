@@ -178,8 +178,8 @@ export function generateSystemOverviewContent() {
         formatRuntimeRecord(".aidw/confirmation-gate.json", "Local gate state for task/test confirmations (runtime file)"),
         formatRuntimeRecord(".aidw/context-loop.jsonl", "Append-only context loop log for recent confirmations and test runs (runtime file)"),
         formatRuntimeRecord(".aidw/context-cache.md", "Cached token-efficient brief context output (runtime file)"),
-        formatRecord("repo-context-kit metrics", "Print compact runtime metrics JSON"),
-        formatRecord("repo-context-kit check", "Run checks derived from lessons (blocker rules fail by default)"),
+        formatRecord("rck metrics", "Print compact runtime metrics JSON"),
+        formatRecord("rck check", "Run checks derived from lessons (blocker rules fail by default)"),
     );
 
     lines.push(

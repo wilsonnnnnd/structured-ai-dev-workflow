@@ -2,7 +2,7 @@
 
 Human-owned project context for AI coding tools.
 
-Edit this file directly. repo-context-kit reads it during `scan` and summarizes it into `.aidw/AI_project.md`.
+Edit this file directly. `rck scan` reads it and summarizes it into `.aidw/AI_project.md`.
 
 ## Project Purpose
 

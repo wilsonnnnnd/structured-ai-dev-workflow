@@ -17,7 +17,7 @@ It is not an autonomous agent. Humans remain responsible for installation, initi
 - Package manager: npm
 - Module system: ESM
 - Distribution: npm CLI package
-- Main binaries: `repo-context-kit`, `repo-context-kit-mcp`
+- Main binaries: `rck`, `rck-mcp`
 
 ## Product / Domain Requirements
 
@@ -34,7 +34,7 @@ It is not an autonomous agent. Humans remain responsible for installation, initi
 - `bin/` contains CLI entry points and command handlers.
 - `src/scan/` contains project detection, index generation, and generated context writers.
 - `src/mcp/` exposes the MCP runtime interface.
-- `template/` contains files copied by `repo-context-kit init`.
+- `template/` contains files copied by `rck init`.
 - `test/cli.test.js` is the main regression suite.
 
 ## Development Requirements
@@ -104,7 +104,7 @@ It is not an autonomous agent. Humans remain responsible for installation, initi
 - Shared abstractions: stable sorting, bounded context, runtime gates, MCP capability tiers
 
 ### Bootstrap Guidance
-- Recommended scaffold: existing repo init via repo-context-kit init
+- Recommended scaffold: existing repo init via `rck init`
 - Manual setup steps: edit PROJECT.md, run scan, review doctor output
 - Human-required setup: install, init, authorization, task scope confirmation, test approval, external side-effect approval, final decision
 - Secrets/config setup expectations: never print or store secrets outside explicit auth helpers

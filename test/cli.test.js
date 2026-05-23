@@ -4,6 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { main as runCliMain } from "../bin/cli.js";
+import { main as runLegacyCliMain } from "../bin/legacy-cli.js";
+import { main as runLegacyMcpMain } from "../bin/legacy-mcp.js";
 import { runInit } from "../bin/init.js";
 import { runScan } from "../bin/scan.js";
 import * as contextModule from "../bin/context.js";
@@ -195,8 +197,25 @@ test("default help exposes only the slim agent runtime surface", async () => {
     assert.match(text, /context next-task/);
     assert.match(text, /task prompt <taskId>/);
     assert.match(text, /gate status\|confirm\|run-test/);
-    assert.match(text, /repo-context-kit-mcp/);
+    assert.match(text, /rck <command>/);
+    assert.match(text, /rck-mcp/);
+    assert.doesNotMatch(text, /repo-context-kit-mcp/);
     assert.doesNotMatch(text, /\b(auto|bootstrap|hygiene|ui)\b|github auth|runtime snapshot|task new|context for\b|context next\b(?!-task)/);
+});
+
+test("legacy command shims point users to the short commands", async () => {
+    process.exitCode = 0;
+    const cli = await withCapturedConsole(() => runLegacyCliMain());
+    assert.equal(process.exitCode, 1);
+    assert.match(cli.output.join("\n"), /repo-context-kit has moved to rck/);
+    assert.match(cli.output.join("\n"), /Use: rck <command> \[options\]/);
+
+    process.exitCode = 0;
+    const mcp = await withCapturedConsole(() => runLegacyMcpMain());
+    assert.equal(process.exitCode, 1);
+    assert.match(mcp.output.join("\n"), /repo-context-kit-mcp has moved to rck-mcp/);
+    assert.match(mcp.output.join("\n"), /Use: rck-mcp/);
+    process.exitCode = 0;
 });
 
 test("removed public commands fail clearly as unknown", async () => {
@@ -1056,13 +1075,19 @@ test("context loop history stays bounded and deterministic", async () => {
 test("README and package manifest reflect the hard slim surface", () => {
     const readme = fs.readFileSync(path.resolve(originalCwd, "README.md"), "utf-8");
     assert.match(readme, /Compact deterministic repository runtime for AI coding agents/);
-    assert.match(readme, /repo-context-kit context brief/);
-    assert.match(readme, /repo-context-kit-mcp --root <repo>/);
+    assert.match(readme, /rck context brief/);
+    assert.match(readme, /rck-mcp --root <repo>/);
+    assert.doesNotMatch(readme, /alias: `repo-context-kit`/);
+    assert.doesNotMatch(readme, /alias: `repo-context-kit-mcp`/);
+    assert.doesNotMatch(readme, /repo-context-kit context brief/);
+    assert.doesNotMatch(readme, /repo-context-kit-mcp --root <repo>/);
     assert.doesNotMatch(readme, /auto|bootstrap|hygiene|Local UI|task new|github auth|runtime snapshot/);
 
     const pkg = JSON.parse(fs.readFileSync(path.resolve(originalCwd, "package.json"), "utf-8"));
-    assert.equal(pkg.bin["repo-context-kit"], "bin/cli.js");
-    assert.equal(pkg.bin["repo-context-kit-mcp"], "bin/mcp.js");
+    assert.equal(pkg.bin.rck, "bin/cli.js");
+    assert.equal(pkg.bin["rck-mcp"], "bin/mcp.js");
+    assert.equal(pkg.bin["repo-context-kit"], undefined);
+    assert.equal(pkg.bin["repo-context-kit-mcp"], undefined);
     assert.ok(!pkg.files.includes("site"));
 });
 

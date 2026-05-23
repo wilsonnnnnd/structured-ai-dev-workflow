@@ -1055,12 +1055,12 @@ export function buildTaskPrompt(taskRef, options = {}) {
         return renderBoundedPrompt([
             "# Task Implementation Prompt",
             "Warning: missing task id.",
-            "Usage: repo-context-kit task prompt <taskId> [--deep] [--compact] [--full-detail] [--full-workset] [--manifest] [--verbose] [--budget auto|off|full]",
+            "Usage: rck task prompt <taskId> [--deep] [--compact] [--full-detail] [--full-workset] [--manifest] [--verbose] [--budget auto|off|full]",
         ], renderPromptFooter({ taskId: null, deep, maxChars, warnings }, options), maxChars);
     }
 
     if (!registry.exists && !providedTask) {
-        warnings.push(`${TASK_REGISTRY_PATH} is missing. Restore the task registry and run repo-context-kit scan.`);
+        warnings.push(`${TASK_REGISTRY_PATH} is missing. Restore the task registry and run rck scan.`);
         return renderBoundedPrompt([
             "# Task Implementation Prompt",
             `Warning: ${TASK_REGISTRY_PATH} is missing.`,
@@ -1092,7 +1092,7 @@ export function buildTaskPrompt(taskRef, options = {}) {
     let workset = buildWorksetContext(providedTask || task.id, { deep, digest: !deep && !fullWorkset, taskDetailOverride: taskDetail });
     const riskAreas = extractWorksetSection(workset, "Relevant Risk Areas");
     const hasRiskAreas = Boolean(riskAreas && !riskAreas.includes("_No indexed risk areas were available._"));
-    const staleScan = workset.includes("Run repo-context-kit scan");
+    const staleScan = workset.includes("Run rck scan");
     const exceptionBudget = budget === "auto" && Boolean(
         hasFailedTest ||
         loopResult?.constraints?.unstable ||
@@ -1309,8 +1309,8 @@ export function buildTaskPrompt(taskRef, options = {}) {
         ].join("\n"),
     ].filter(Boolean);
 
-    if (workset.includes("Run repo-context-kit scan")) {
-        warnings.push("Generated indexes may be missing or stale. Run repo-context-kit scan for richer workset context.");
+    if (workset.includes("Run rck scan")) {
+        warnings.push("Generated indexes may be missing or stale. Run rck scan for richer workset context.");
     }
 
     return renderBoundedPrompt(
@@ -1327,9 +1327,9 @@ export async function runTask(args = []) {
 
     if (subcommand === "help" || subcommand === "--help") {
         console.log("Usage:");
-        console.log("  repo-context-kit task prompt <taskId> [--deep]");
-        console.log("  repo-context-kit task checklist <taskId> [--deep]");
-        console.log("  repo-context-kit task pr <taskId> [--deep]");
+        console.log("  rck task prompt <taskId> [--deep]");
+        console.log("  rck task checklist <taskId> [--deep]");
+        console.log("  rck task pr <taskId> [--deep]");
         return {
             created: null,
             output: null,
@@ -1339,9 +1339,9 @@ export async function runTask(args = []) {
     if (!["prompt", "checklist", "pr"].includes(String(subcommand ?? ""))) {
         console.error("Unknown task command.");
         console.log("Usage:");
-        console.log("  repo-context-kit task prompt <taskId> [--deep]");
-        console.log("  repo-context-kit task checklist <taskId> [--deep]");
-        console.log("  repo-context-kit task pr <taskId> [--deep]");
+        console.log("  rck task prompt <taskId> [--deep]");
+        console.log("  rck task checklist <taskId> [--deep]");
+        console.log("  rck task pr <taskId> [--deep]");
         process.exitCode = 1;
         return {
             created: null,
