@@ -20,12 +20,12 @@ The repository is packaged for npm distribution.
 
 ## Package Metadata
 - name: repo-context-kit
-- version: 1.7.3
+- version: 1.8.2
 - module type: module
 - license: MIT
 - bin:
-  - repo-context-kit -> bin/cli.js
-  - repo-context-kit-mcp -> bin/mcp.js
+  - rck -> bin/cli.js
+  - rck-mcp -> bin/mcp.js
 - scripts:
   - test: node test/cli.test.js
   - release:check: npm pack --dry-run
@@ -55,6 +55,8 @@ The repository is packaged for npm distribution.
 - bin/context.js -> CLI command entry or command helper
 - bin/gate.js -> CLI command entry or command helper
 - bin/init.js -> CLI command entry or command helper
+- bin/legacy-cli.js -> CLI command entry or command helper
+- bin/legacy-mcp.js -> CLI command entry or command helper
 - bin/mcp.js -> CLI command entry or command helper
 - bin/metrics.js -> CLI command entry or command helper
 - bin/scan.js -> CLI command entry or command helper
@@ -105,7 +107,7 @@ It is not an autonomous agent. Humans remain responsible for installation, initi
 - Package manager: npm
 - Module system: ESM
 - Distribution: npm CLI package
-- Main binaries: `repo-context-kit`, `repo-context-kit-mcp`
+- Main binaries: `rck`, `rck-mcp`
 
 ## Product / Domain Requirements
 
@@ -122,7 +124,7 @@ It is not an autonomous agent. Humans remain responsible for installation, initi
 - `bin/` contains CLI entry points and command handlers.
 - `src/scan/` contains project detection, index generation, and generated context writers.
 - `src/mcp/` exposes the MCP runtime interface.
-- `template/` contains files copied by `repo-context-kit init`.
+- `template/` contains files copied by `rck init`.
 - `test/cli.test.js` is the main regression suite.
 
 ## Development Requirements
@@ -192,7 +194,7 @@ It is not an autonomous agent. Humans remain responsible for installation, initi
 - Shared abstractions: stable sorting, bounded context, runtime gates, MCP capability tiers
 
 ### Bootstrap Guidance
-- Recommended scaffold: existing repo init via repo-context-kit init
+- Recommended scaffold: existing repo init via `rck init`
 - Manual setup steps: edit PROJECT.md, run scan, review doctor output
 - Human-required setup: install, init, authorization, task scope confirmation, test approval, external side-effect approval, final decision
 - Secrets/config setup expectations: never print or store secrets outside explicit auth helpers

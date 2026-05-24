@@ -3,7 +3,7 @@
         "path": "AGENTS.md",
         "type": "other",
         "description": "Project file relevant to repository structure.",
-        "updatedAt": "2026-05-23T12:40:50.600Z",
+        "updatedAt": "2026-05-23T13:07:14.626Z",
         "confidence": 0.55,
         "source": "heuristic"
     },
@@ -19,7 +19,7 @@
         "path": "bin/check.js",
         "type": "entry",
         "description": "Project file relevant to repository structure.",
-        "updatedAt": "2026-05-12T12:48:00.364Z",
+        "updatedAt": "2026-05-23T17:37:16.194Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -27,7 +27,7 @@
         "path": "bin/cli.js",
         "type": "entry",
         "description": "CLI entry point that parses commands and flags.",
-        "updatedAt": "2026-05-16T14:08:18.006Z",
+        "updatedAt": "2026-05-24T15:26:59.707Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -35,7 +35,7 @@
         "path": "bin/context.js",
         "type": "entry",
         "description": "Validates .aidw project context files.",
-        "updatedAt": "2026-05-16T14:10:25.484Z",
+        "updatedAt": "2026-05-23T18:32:04.874Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -43,7 +43,7 @@
         "path": "bin/gate.js",
         "type": "entry",
         "description": "Project file relevant to repository structure.",
-        "updatedAt": "2026-05-23T12:39:53.429Z",
+        "updatedAt": "2026-05-23T17:37:16.346Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -51,7 +51,23 @@
         "path": "bin/init.js",
         "type": "entry",
         "description": "Initializes the repo-context-kit project context.",
-        "updatedAt": "2026-05-11T09:59:36.500Z",
+        "updatedAt": "2026-05-23T18:40:13.308Z",
+        "confidence": 0.9,
+        "source": "heuristic"
+    },
+    {
+        "path": "bin/legacy-cli.js",
+        "type": "entry",
+        "description": "Project file relevant to repository structure.",
+        "updatedAt": "2026-05-23T17:35:42.765Z",
+        "confidence": 0.9,
+        "source": "heuristic"
+    },
+    {
+        "path": "bin/legacy-mcp.js",
+        "type": "entry",
+        "description": "Project file relevant to repository structure.",
+        "updatedAt": "2026-05-23T17:35:42.837Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -59,7 +75,7 @@
         "path": "bin/mcp.js",
         "type": "entry",
         "description": "Project file relevant to repository structure.",
-        "updatedAt": "2026-05-11T09:30:59.386Z",
+        "updatedAt": "2026-05-24T15:27:03.198Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -67,7 +83,7 @@
         "path": "bin/metrics.js",
         "type": "entry",
         "description": "Project file relevant to repository structure.",
-        "updatedAt": "2026-05-11T11:14:41.300Z",
+        "updatedAt": "2026-05-23T17:37:16.504Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -83,7 +99,7 @@
         "path": "bin/task.js",
         "type": "entry",
         "description": "Project file relevant to repository structure.",
-        "updatedAt": "2026-05-16T14:10:57.437Z",
+        "updatedAt": "2026-05-23T18:44:14.489Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -91,7 +107,7 @@
         "path": "package.json",
         "type": "config",
         "description": "Package metadata, scripts, and CLI binary configuration.",
-        "updatedAt": "2026-05-16T14:44:28.143Z",
+        "updatedAt": "2026-05-23T18:51:44.325Z",
         "confidence": 0.85,
         "source": "heuristic"
     },
@@ -99,7 +115,7 @@
         "path": "README.md",
         "type": "other",
         "description": "Project file relevant to repository structure.",
-        "updatedAt": "2026-05-12T13:51:08.474Z",
+        "updatedAt": "2026-05-23T18:36:29.638Z",
         "confidence": 0.55,
         "source": "heuristic"
     },
@@ -123,7 +139,7 @@
         "path": "src/docs/doc-extractor.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-16T14:10:28.123Z",
+        "updatedAt": "2026-05-23T18:32:09.263Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -131,7 +147,7 @@
         "path": "src/gate/run-test.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-23T12:33:48.816Z",
+        "updatedAt": "2026-05-23T18:32:09.337Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -139,7 +155,7 @@
         "path": "src/gate/state.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-03T16:23:48.648Z",
+        "updatedAt": "2026-05-23T17:37:16.631Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -155,7 +171,7 @@
         "path": "src/loop/analyze.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-16T14:10:28.167Z",
+        "updatedAt": "2026-05-23T18:32:09.369Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -211,7 +227,7 @@
         "path": "src/mcp/tools.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-23T12:34:08.649Z",
+        "updatedAt": "2026-05-23T18:36:29.528Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -275,7 +291,7 @@
         "path": "src/runtime/output-presentation.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-23T12:39:35.472Z",
+        "updatedAt": "2026-05-23T13:08:26.182Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -283,7 +299,7 @@
         "path": "src/runtime/rdl/pdgl.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-11T09:55:08.573Z",
+        "updatedAt": "2026-05-23T17:37:16.810Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -323,7 +339,7 @@
         "path": "src/runtime/stable-sort.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-16T14:10:28.172Z",
+        "updatedAt": "2026-05-23T18:32:09.386Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -331,7 +347,7 @@
         "path": "src/scan/constants.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-12T12:06:24.644Z",
+        "updatedAt": "2026-05-23T18:36:29.344Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -411,7 +427,7 @@
         "path": "src/scan/index.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-16T14:10:28.190Z",
+        "updatedAt": "2026-05-23T18:32:09.425Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -443,7 +459,7 @@
         "path": "src/scan/system-overview.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-23T12:46:44.953Z",
+        "updatedAt": "2026-05-23T17:37:16.744Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -459,7 +475,7 @@
         "path": "src/scan/task-registry.js",
         "type": "source",
         "description": "Source module used by project scanning.",
-        "updatedAt": "2026-05-23T12:33:39.545Z",
+        "updatedAt": "2026-05-23T18:32:09.553Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -467,7 +483,7 @@
         "path": "src/scan/writers/project-md.js",
         "type": "source",
         "description": "Writes generated project context files.",
-        "updatedAt": "2026-05-11T09:54:48.411Z",
+        "updatedAt": "2026-05-23T17:37:16.877Z",
         "confidence": 0.8,
         "source": "heuristic"
     },
@@ -491,7 +507,7 @@
         "path": "test/cli.test.js",
         "type": "test",
         "description": "Automated test coverage for CLI behavior.",
-        "updatedAt": "2026-05-23T12:46:52.280Z",
+        "updatedAt": "2026-05-23T18:40:27.671Z",
         "confidence": 0.75,
         "source": "heuristic"
     },

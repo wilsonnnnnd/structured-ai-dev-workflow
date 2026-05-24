@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "fs";
 import path from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { fileURLToPath } from "url";
 import { runContext } from "./context.js";
 import { runGate } from "./gate.js";
 import { runInit } from "./init.js";
@@ -57,6 +57,28 @@ function getVersion() {
     const packagePath = path.resolve(__dirname, "../package.json");
     const pkg = JSON.parse(fs.readFileSync(packagePath, "utf-8"));
     return pkg.version;
+}
+
+function normalizeResolvedPath(filePath) {
+    return process.platform === "win32" ? filePath.toLowerCase() : filePath;
+}
+
+function resolveRealPath(filePath) {
+    try {
+        return fs.realpathSync.native(filePath);
+    } catch {
+        return path.resolve(filePath);
+    }
+}
+
+function isDirectRun(importMetaUrl) {
+    if (!process.argv[1]) {
+        return false;
+    }
+
+    const modulePath = resolveRealPath(fileURLToPath(importMetaUrl));
+    const invokedPath = resolveRealPath(process.argv[1]);
+    return normalizeResolvedPath(modulePath) === normalizeResolvedPath(invokedPath);
 }
 
 export async function main(args = process.argv.slice(2)) {
@@ -165,7 +187,7 @@ export async function main(args = process.argv.slice(2)) {
     process.exitCode = 1;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+if (isDirectRun(import.meta.url)) {
     main().catch((error) => {
         console.error("Unexpected error:", error);
         process.exit(1);

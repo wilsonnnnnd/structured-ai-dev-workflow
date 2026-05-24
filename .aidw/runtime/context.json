@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-05-23T12:46:52.280Z",
+    "generatedAt": "2026-05-24T15:27:07.060Z",
     "kind": "context",
     "payload": {
         "entrypoints": [
@@ -30,6 +30,14 @@
             {
                 "name": "CLI entry",
                 "path": "bin/init.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/legacy-cli.js"
+            },
+            {
+                "name": "CLI entry",
+                "path": "bin/legacy-mcp.js"
             },
             {
                 "name": "CLI entry",
@@ -104,7 +112,7 @@
         ],
         "index": {
             "fileGroups": 14,
-            "indexedFiles": 65,
+            "indexedFiles": 67,
             "indexedSymbols": 500,
             "truncated": true
         },
@@ -156,6 +164,16 @@
             {
                 "description": "Initializes the repo-context-kit project context.",
                 "path": "bin/init.js",
+                "type": "entry"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "bin/legacy-cli.js",
+                "type": "entry"
+            },
+            {
+                "description": "Project file relevant to repository structure.",
+                "path": "bin/legacy-mcp.js",
                 "type": "entry"
             },
             {

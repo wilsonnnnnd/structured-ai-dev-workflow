@@ -2,7 +2,7 @@
     {
         "name": "CLI entry",
         "path": "bin/cli.js",
-        "command": "repo-context-kit",
+        "command": "rck",
         "description": "Parses CLI commands and dispatches init/scan.",
         "confidence": 0.9,
         "source": "package.json"
@@ -10,7 +10,7 @@
     {
         "name": "CLI entry",
         "path": "bin/mcp.js",
-        "command": "repo-context-kit-mcp",
+        "command": "rck-mcp",
         "description": "Parses CLI commands and dispatches init/scan.",
         "confidence": 0.9,
         "source": "package.json"
@@ -51,6 +51,22 @@
         "name": "CLI entry",
         "path": "bin/init.js",
         "command": "init",
+        "description": "Likely CLI entry point under bin/.",
+        "confidence": 0.7,
+        "source": "heuristic"
+    },
+    {
+        "name": "CLI entry",
+        "path": "bin/legacy-cli.js",
+        "command": "legacy-cli",
+        "description": "Likely CLI entry point under bin/.",
+        "confidence": 0.7,
+        "source": "heuristic"
+    },
+    {
+        "name": "CLI entry",
+        "path": "bin/legacy-mcp.js",
+        "command": "legacy-mcp",
         "description": "Likely CLI entry point under bin/.",
         "confidence": 0.7,
         "source": "heuristic"
