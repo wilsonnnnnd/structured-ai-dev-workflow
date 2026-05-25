@@ -1,5 +1,11 @@
 # repo-context-kit
 
+## 1.8.4
+
+### Patch Changes
+
+- f19ec0f: chore: update workflow documentation, enhance CLI help, and refine governance checks
+
 ## 1.8.3
 
 ### Patch Changes
