@@ -25,6 +25,8 @@ Markdown is a compatibility view and legacy fallback.
 
 Doctor output, lessons, context-loop data, budget decisions, and risk summaries are signals. They may shape context or warnings. They must not trigger writes, tests, fixes, approvals, or external side effects without a hard gate.
 
+`rck scan --auto` is a managed refresh mode for gated or MCP-driven flows. It may refresh generated runtime context after approval, but it is not the default human workflow and it does not bypass write gates.
+
 ## Compact-First Output
 
 Runtime presentation uses three tiers:

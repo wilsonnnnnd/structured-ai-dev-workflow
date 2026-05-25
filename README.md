@@ -33,10 +33,40 @@ Markdown is a readable view only.
 
 ## Usage
 
+Default workflow:
+
 ```bash
 rck init
+rck scan
+rck check
+rck task prompt <taskId>
+# human implementation
+rck task checklist <taskId>
+rck task pr <taskId>
+rck scan --check
+rck check --strict
+```
+
+Preflight for local or CI usage:
+
+```bash
+rck scan --check
+rck check --strict
+```
+
+- `scan --check` verifies generated context and runtime JSON freshness.
+- `check --strict` evaluates governance signals without writing files.
+- `scan --auto` is a managed refresh mode for gated/MCP flows. It is not the default human workflow.
+
+Command reference:
+
+```bash
+rck init
+rck init --dry-run
+rck init --force
 rck init --force --update-agent-files
 rck scan [--check]
+rck scan --auto
 rck context brief
 rck context next-task
 rck context workset <taskId>
@@ -44,9 +74,16 @@ rck task prompt <taskId>
 rck task checklist <taskId>
 rck task pr <taskId>
 rck gate status
+rck gate reset
 rck gate confirm task <taskId>
+rck gate confirm task <taskId> --ttl-minutes <n> --json
 rck gate confirm tests <taskId>
+rck gate confirm tests <taskId> --json
 rck gate run-test <taskId> --token <token>
-rck check
+rck gate run-test <taskId> --token <token> --json
+rck check [--explain]
+rck check [--strict | --warn-only]
 rck metrics
 ```
+
+Use `rck <command> --help` for command-specific options.

@@ -4,7 +4,7 @@ repo-context-kit is an agent-facing runtime/context layer. JSON is the source of
 
 ```text
 AI agent / MCP client
-  -> repo-context-kit-mcp
+  -> rck-mcp
   -> .aidw/runtime/*.json
   -> bounded context/workset
   -> gated action

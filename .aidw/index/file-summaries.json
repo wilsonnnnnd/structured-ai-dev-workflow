@@ -190,6 +190,11 @@
                 "exported": false
             },
             {
+                "name": "formatDefaultWorkflow",
+                "type": "function",
+                "exported": false
+            },
+            {
                 "name": "getVersion",
                 "type": "function",
                 "exported": false
@@ -206,6 +211,16 @@
             },
             {
                 "name": "printHelp",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "printInitHelp",
+                "type": "function",
+                "exported": false
+            },
+            {
+                "name": "printScanHelp",
                 "type": "function",
                 "exported": false
             },
@@ -229,7 +244,7 @@
         ],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-24T15:26:59.707Z"
+        "updatedAt": "2026-05-25T14:37:13.167Z"
     },
     {
         "path": "bin/context.js",
@@ -879,7 +894,7 @@
         "imports": [],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-23T18:36:29.638Z"
+        "updatedAt": "2026-05-25T14:37:31.014Z"
     },
     {
         "path": "src/budget/decision.js",
@@ -3527,21 +3542,6 @@
                 "name": "existingFiles",
                 "type": "function",
                 "exported": false
-            },
-            {
-                "name": "extractImports",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "extractSymbolsFromFile",
-                "type": "function",
-                "exported": false
-            },
-            {
-                "name": "fileConfidence",
-                "type": "function",
-                "exported": false
             }
         ],
         "imports": [
@@ -3971,7 +3971,7 @@
         "imports": [],
         "calls": [],
         "risks": [],
-        "updatedAt": "2026-05-23T18:40:27.671Z"
+        "updatedAt": "2026-05-25T14:39:13.734Z"
     },
     {
         "path": "test/helpers.js",

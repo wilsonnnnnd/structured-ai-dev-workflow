@@ -194,13 +194,82 @@ test("default help exposes only the slim agent runtime surface", async () => {
 
     assert.match(text, /\binit\b/);
     assert.match(text, /scan \[--check\]/);
+    assert.match(text, /check \[--strict\]/);
     assert.match(text, /context next-task/);
     assert.match(text, /task prompt <taskId>/);
+    assert.match(text, /Default workflow:/);
+    assert.match(text, /rck init[\s\S]*rck scan[\s\S]*rck check[\s\S]*rck task prompt <taskId>/);
+    assert.match(text, /human implementation[\s\S]*rck task checklist <taskId>[\s\S]*rck task pr <taskId>/);
+    assert.match(text, /rck scan --check[\s\S]*rck check --strict/);
+    assert.match(text, /Preflight:/);
+    assert.match(text, /Local\/CI: rck scan --check && rck check --strict/);
+    assert.match(text, /scan --check verifies generated context freshness/);
+    assert.match(text, /check --strict evaluates governance signals without writing files/);
     assert.match(text, /gate status\|confirm\|run-test/);
     assert.match(text, /rck <command>/);
     assert.match(text, /rck-mcp/);
     assert.doesNotMatch(text, /repo-context-kit-mcp/);
     assert.doesNotMatch(text, /\b(auto|bootstrap|hygiene|ui)\b|github auth|runtime snapshot|task new|context for\b|context next\b(?!-task)/);
+});
+
+test("subcommand help is delegated consistently", async () => {
+    const expected = [
+        { args: ["init", "--help"], match: /rck init \[--dry-run\] \[--force\] \[--update-agent-files\]/ },
+        { args: ["scan", "--help"], match: /rck scan --auto[\s\S]*Managed refresh mode/ },
+        { args: ["context", "--help"], match: /rck context workset <taskId>/ },
+        { args: ["task", "--help"], match: /rck task prompt <taskId>/ },
+        { args: ["gate", "--help"], match: /rck gate reset[\s\S]*rck gate run-test <taskId> --token <token>/ },
+        { args: ["check", "--help"], match: /rck check \[--explain\] \[--strict \| --warn-only\]/ },
+        { args: ["metrics", "--help"], match: /rck metrics/ },
+    ];
+
+    for (const item of expected) {
+        process.exitCode = 0;
+        const { output } = await withCapturedConsole(() => runCliMain(item.args));
+        assert.equal(process.exitCode, 0, item.args.join(" "));
+        const text = output.join("\n");
+        assert.match(text, item.match, item.args.join(" "));
+        assert.doesNotMatch(text, /Agent runtime:/, item.args.join(" "));
+    }
+});
+
+test("scan help uses help routing without running scan", async () => {
+    await withTempProject(async () => {
+        process.exitCode = 0;
+        const { output } = await withCapturedConsole(() => runCliMain(["scan", "help"]));
+        const text = output.join("\n");
+
+        assert.equal(process.exitCode, 0);
+        assert.match(text, /rck scan --auto[\s\S]*Managed refresh mode/);
+        assert.doesNotMatch(text, /ERROR Project not initialized/);
+    });
+    process.exitCode = 0;
+});
+
+test("init help uses help routing without running init", async () => {
+    await withTempProject(async () => {
+        process.exitCode = 0;
+        const { output } = await withCapturedConsole(() => runCliMain(["init", "help"]));
+        const text = output.join("\n");
+
+        assert.equal(process.exitCode, 0);
+        assert.match(text, /rck init \[--dry-run\] \[--force\] \[--update-agent-files\]/);
+        assert.equal(fs.existsSync(path.resolve(".aidw")), false);
+    });
+    process.exitCode = 0;
+});
+
+test("unknown command falls back to canonical help", async () => {
+    process.exitCode = 0;
+    const { output } = await withCapturedConsole(() => runCliMain(["unknown"]));
+    const text = output.join("\n");
+
+    assert.equal(process.exitCode, 1);
+    assert.match(text, /Unknown command: unknown/);
+    assert.match(text, /Agent runtime:/);
+    assert.match(text, /gate status\|confirm\|run-test/);
+    assert.match(text, /rck scan --check && rck check --strict/);
+    process.exitCode = 0;
 });
 
 test("legacy command shims point users to the short commands", async () => {
@@ -1129,13 +1198,21 @@ test("context loop history stays bounded and deterministic", async () => {
 test("README and package manifest reflect the hard slim surface", () => {
     const readme = fs.readFileSync(path.resolve(originalCwd, "README.md"), "utf-8");
     assert.match(readme, /Compact deterministic repository runtime for AI coding agents/);
+    assert.match(readme, /Default workflow:/);
+    assert.match(readme, /rck init[\s\S]*rck scan[\s\S]*rck check[\s\S]*rck task prompt <taskId>/);
+    assert.match(readme, /rck scan --check[\s\S]*rck check --strict/);
+    assert.match(readme, /Preflight for local or CI usage:/);
+    assert.match(readme, /`scan --auto` is a managed refresh mode for gated\/MCP flows/);
     assert.match(readme, /rck context brief/);
+    assert.match(readme, /rck gate reset/);
+    assert.match(readme, /rck gate run-test <taskId> --token <token> --json/);
+    assert.match(readme, /rck check \[--explain\]/);
     assert.match(readme, /rck-mcp --root <repo>/);
     assert.doesNotMatch(readme, /alias: `repo-context-kit`/);
     assert.doesNotMatch(readme, /alias: `repo-context-kit-mcp`/);
     assert.doesNotMatch(readme, /repo-context-kit context brief/);
     assert.doesNotMatch(readme, /repo-context-kit-mcp --root <repo>/);
-    assert.doesNotMatch(readme, /auto|bootstrap|hygiene|Local UI|task new|github auth|runtime snapshot/);
+    assert.doesNotMatch(readme, /bootstrap|hygiene|Local UI|task new|github auth|runtime snapshot/);
 
     const pkg = JSON.parse(fs.readFileSync(path.resolve(originalCwd, "package.json"), "utf-8"));
     assert.equal(pkg.bin.rck, "bin/cli.js");

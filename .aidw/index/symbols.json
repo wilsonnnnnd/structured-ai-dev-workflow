@@ -85,7 +85,7 @@
         "file": "bin/cli.js",
         "description": "Provides project scanning behavior.",
         "exported": true,
-        "updatedAt": "2026-05-24T15:26:59.707Z",
+        "updatedAt": "2026-05-25T14:37:13.167Z",
         "confidence": 0.8,
         "source": "regex"
     },
@@ -1785,7 +1785,17 @@
         "file": "bin/cli.js",
         "description": "Provides project scanning behavior.",
         "exported": false,
-        "updatedAt": "2026-05-24T15:26:59.707Z",
+        "updatedAt": "2026-05-25T14:37:13.167Z",
+        "confidence": 0.65,
+        "source": "regex"
+    },
+    {
+        "name": "formatDefaultWorkflow",
+        "type": "function",
+        "file": "bin/cli.js",
+        "description": "Provides project scanning behavior.",
+        "exported": false,
+        "updatedAt": "2026-05-25T14:37:13.167Z",
         "confidence": 0.65,
         "source": "regex"
     },
@@ -1795,7 +1805,7 @@
         "file": "bin/cli.js",
         "description": "Provides project scanning behavior.",
         "exported": false,
-        "updatedAt": "2026-05-24T15:26:59.707Z",
+        "updatedAt": "2026-05-25T14:37:13.167Z",
         "confidence": 0.65,
         "source": "regex"
     },
@@ -1805,7 +1815,7 @@
         "file": "bin/cli.js",
         "description": "Provides project scanning behavior.",
         "exported": false,
-        "updatedAt": "2026-05-24T15:26:59.707Z",
+        "updatedAt": "2026-05-25T14:37:13.167Z",
         "confidence": 0.65,
         "source": "regex"
     },
@@ -1815,7 +1825,7 @@
         "file": "bin/cli.js",
         "description": "Provides project scanning behavior.",
         "exported": false,
-        "updatedAt": "2026-05-24T15:26:59.707Z",
+        "updatedAt": "2026-05-25T14:37:13.167Z",
         "confidence": 0.65,
         "source": "regex"
     },
@@ -1825,7 +1835,27 @@
         "file": "bin/cli.js",
         "description": "Provides project scanning behavior.",
         "exported": false,
-        "updatedAt": "2026-05-24T15:26:59.707Z",
+        "updatedAt": "2026-05-25T14:37:13.167Z",
+        "confidence": 0.65,
+        "source": "regex"
+    },
+    {
+        "name": "printInitHelp",
+        "type": "function",
+        "file": "bin/cli.js",
+        "description": "Provides project scanning behavior.",
+        "exported": false,
+        "updatedAt": "2026-05-25T14:37:13.167Z",
+        "confidence": 0.65,
+        "source": "regex"
+    },
+    {
+        "name": "printScanHelp",
+        "type": "function",
+        "file": "bin/cli.js",
+        "description": "Provides project scanning behavior.",
+        "exported": false,
+        "updatedAt": "2026-05-25T14:37:13.167Z",
         "confidence": 0.65,
         "source": "regex"
     },
@@ -1835,7 +1865,7 @@
         "file": "bin/cli.js",
         "description": "Provides project scanning behavior.",
         "exported": false,
-        "updatedAt": "2026-05-24T15:26:59.707Z",
+        "updatedAt": "2026-05-25T14:37:13.167Z",
         "confidence": 0.65,
         "source": "regex"
     },
@@ -4961,36 +4991,6 @@
     },
     {
         "name": "existingFiles",
-        "type": "function",
-        "file": "src/scan/indexers/project-index.js",
-        "description": "Provides project scanning behavior.",
-        "exported": false,
-        "updatedAt": "2026-05-11T10:26:21.756Z",
-        "confidence": 0.65,
-        "source": "regex"
-    },
-    {
-        "name": "extractImports",
-        "type": "function",
-        "file": "src/scan/indexers/project-index.js",
-        "description": "Provides project scanning behavior.",
-        "exported": false,
-        "updatedAt": "2026-05-11T10:26:21.756Z",
-        "confidence": 0.65,
-        "source": "regex"
-    },
-    {
-        "name": "extractSymbolsFromFile",
-        "type": "function",
-        "file": "src/scan/indexers/project-index.js",
-        "description": "Provides project scanning behavior.",
-        "exported": false,
-        "updatedAt": "2026-05-11T10:26:21.756Z",
-        "confidence": 0.65,
-        "source": "regex"
-    },
-    {
-        "name": "fileConfidence",
         "type": "function",
         "file": "src/scan/indexers/project-index.js",
         "description": "Provides project scanning behavior.",

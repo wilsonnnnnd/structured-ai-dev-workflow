@@ -2,11 +2,11 @@
 
 ## Goal
 
-Make the default repo-context-kit workflow explicit and cohesive: doctor enters the mainline, preflight bundle is documented, and governance layers are clearly defined as hard gates vs signals.
+Make the default repo-context-kit workflow explicit and cohesive: governance checks enter the mainline, preflight bundle is documented, and governance layers are clearly defined as hard gates vs signals.
 
 ## Background
 
-The project has multiple control planes (scan/check, doctor, confirmation protocol, gate, loop, budget, lessons, MCP). Phase 2B consolidates the user-facing mainline without adding new automation.
+The project has multiple control planes (scan/check, confirmation protocol, gate, loop, budget, lessons, MCP). Phase 2B consolidates the user-facing mainline without adding new automation.
 
 ## Scope
 
@@ -25,8 +25,8 @@ Do not change:
 
 ## Requirements
 
-- README default workflow: `init → scan → bootstrap doctor → task prompt → human implementation → task checklist → task pr → scan --check → bootstrap doctor --check`.
-- Document the preflight bundle (`scan --check` + `bootstrap doctor --check`) for CI/local usage.
+- README default workflow: `init -> scan -> check -> task prompt -> human implementation -> task checklist -> task pr -> scan --check -> check --strict`.
+- Document the preflight bundle (`scan --check` + `check --strict`) for CI/local usage.
 - Add governance layer documentation clarifying responsibilities and gates/signals.
 - Keep docs discoverable via README links.
 
@@ -48,4 +48,3 @@ npm test
 - Docs updated.
 - Tests added/updated.
 - Test command passes.
-

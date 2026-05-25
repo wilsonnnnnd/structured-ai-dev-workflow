@@ -23,7 +23,7 @@ Use `AGENTS.md` as the source of truth. See `.aidw/rules-canonical.md` for all r
   - IMPLEMENT: otherwise.
 - If vague: ask only implementation-boundary questions, then stop.
 - If clear: draft a compact task summary (Goal, Scope, Checks/Requirements, Tests, Need), request confirmation, then implement and verify. Keep full Background/AC/DoD for audit mode or when needed.
-- Prefer running tests via `repo-context-kit gate run-test <taskId>` when available.
+- Prefer running tests via `rck gate run-test <taskId>` when available.
 - For REVIEW without Task/AC: draft minimal Task/AC first, then review against it.
 
 # Constraints

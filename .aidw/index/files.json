@@ -27,7 +27,7 @@
         "path": "bin/cli.js",
         "type": "entry",
         "description": "CLI entry point that parses commands and flags.",
-        "updatedAt": "2026-05-24T15:26:59.707Z",
+        "updatedAt": "2026-05-25T14:37:13.167Z",
         "confidence": 0.9,
         "source": "heuristic"
     },
@@ -115,7 +115,7 @@
         "path": "README.md",
         "type": "other",
         "description": "Project file relevant to repository structure.",
-        "updatedAt": "2026-05-23T18:36:29.638Z",
+        "updatedAt": "2026-05-25T14:37:31.014Z",
         "confidence": 0.55,
         "source": "heuristic"
     },
@@ -507,7 +507,7 @@
         "path": "test/cli.test.js",
         "type": "test",
         "description": "Automated test coverage for CLI behavior.",
-        "updatedAt": "2026-05-23T18:40:27.671Z",
+        "updatedAt": "2026-05-25T14:39:13.734Z",
         "confidence": 0.75,
         "source": "heuristic"
     },

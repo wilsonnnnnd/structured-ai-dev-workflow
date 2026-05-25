@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-05-24T15:27:07.060Z",
+    "generatedAt": "2026-05-25T14:39:24.305Z",
     "kind": "task",
     "payload": {
         "registryPath": "task/task.md",
@@ -68,11 +68,11 @@
                         "Tests added/updated.",
                         "Test command passes."
                     ],
-                    "goal": "Make the default repo-context-kit workflow explicit and cohesive: doctor enters the mainline, preflight bundle is documented, and governance layers are clearly defined as hard gates vs signals.",
+                    "goal": "Make the default repo-context-kit workflow explicit and cohesive: governance checks enter the mainline, preflight bundle is documented, and governance layers are clearly defined as hard gates vs signals.",
                     "hardBoundaries": [],
                     "requirements": [
-                        "README default workflow: `init → scan → bootstrap doctor → task prompt → human implementation → task checklist → task pr → scan --check → bootstrap doctor --check`.",
-                        "Document the preflight bundle (`scan --check` + `bootstrap doctor --check`) for CI/local usage.",
+                        "README default workflow: `init -> scan -> check -> task prompt -> human implementation -> task checklist -> task pr -> scan --check -> check --strict`.",
+                        "Document the preflight bundle (`scan --check` + `check --strict`) for CI/local usage.",
                         "Add governance layer documentation clarifying responsibilities and gates/signals.",
                         "Keep docs discoverable via README links."
                     ],
